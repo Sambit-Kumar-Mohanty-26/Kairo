@@ -334,6 +334,18 @@ body {
 }
 @keyframes sealLetter { to { opacity: 1; transform: translateY(0); } }
 
+/* Standalone marks (the auth panel's watermark) reuse the choreography above
+   for the intro, then keep the node breathing — scoped to .mark-live so the
+   footer seal, which plays once and holds still, is unaffected. */
+.mark-live.seal-on .seal-node {
+  animation:
+    sealLand 620ms var(--ease-cinematic) 1380ms forwards,
+    markIdle 3400ms ease-in-out 2000ms infinite alternate;
+}
+@keyframes markIdle {
+  to { transform: scale(1.14); opacity: 0.8; }
+}
+
 .fabric-pulse {
   animation: dashFlow 2.8s linear infinite;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Container from "../primitives/Container";
 import KairoField from "../field/KairoField";
 import NoiseField from "./NoiseField";
@@ -95,16 +96,16 @@ export default function Hero() {
 
             {/* Primary & Secondary Tactile CTAs (Equal Height, Baseline Aligned) */}
             <div className="animate-cinematic-actions pt-2 flex flex-wrap items-center gap-3.5">
-              <a
-                href="#enter"
+              <Link
+                href="/login"
                 className="h-[46px] inline-flex items-center gap-2 px-6 rounded-full bg-[#E4D4F8] text-[#171917] border border-[#171917] text-sm font-semibold tracking-tight shadow-xs hover:shadow-sm hover:-translate-y-0.5 transition-all group cursor-pointer"
               >
                 <span>Enter Kairo</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </a>
+              </Link>
 
               <a
-                href="#lab"
+                href="#test-kairo"
                 className="h-[46px] inline-flex items-center gap-2 px-5 rounded-full bg-[#FFFFEB] text-[#62665F] border border-[#DCDDCB] text-sm font-medium tracking-tight hover:text-[#171917] hover:border-[#171917] hover:-translate-y-0.5 transition-all cursor-pointer"
               >
                 <Terminal className="w-4 h-4 text-[#8A8E86]" />

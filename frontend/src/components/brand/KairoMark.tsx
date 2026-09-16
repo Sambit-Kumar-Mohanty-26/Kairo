@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useId, useState } from "react";
 
 interface KairoMarkProps {
   size?: number;
@@ -9,6 +11,10 @@ interface KairoMarkProps {
   accentColor?: string;
   /** deep end of the blade gradient, at the node */
   accentDeep?: string;
+  /** guard draws in, arms grow, node lands — then idles with a slow pulse.
+      For a mark sitting still on screen (nothing to scroll to trigger it),
+      not the navbar/wordmark's static use. */
+  animated?: boolean;
 }
 
 /* Geometry generated from the brand artwork rather than drawn by eye —
@@ -37,15 +43,27 @@ export default function KairoMark({
   strokeColor = "currentColor",
   accentColor = "#16DFA0",
   accentDeep = "#0A7A5D",
+  animated = false,
 }: KairoMarkProps) {
-  // keyed on the colours, so two marks in the same colourway share one def and
-  // two different colourways never collide — no useId, still server-safe
-  const gid = `kb-${accentDeep}${accentColor}`.replace(/#/g, "");
+  // Unique per instance. Colour-keyed ids meant two marks in the same colourway
+  // shared one gradient — and if the first of them sat in a display:none subtree
+  // (the layout's lg:hidden mobile mark), Chromium couldn't resolve the paint
+  // server at all and the blade silently painted nothing.
+  const gid = `kb${useId().replace(/[^\w]/g, "")}`;
   // the artwork's own weight is 0.7; small sizes need the guard thicker than
   // a hairline or it greys out against the K
-  const sw = size >= 48 ? 0.7 : 0.95;
+  const sw = size < 40 ? 0.9 : 0.7;
 
-  return (
+  // starts one tick after mount, so the transition actually fires instead of
+  // landing on its end state before the browser paints the start state
+  const [live, setLive] = useState(false);
+  useEffect(() => {
+    if (!animated) return;
+    const raf = requestAnimationFrame(() => setLive(true));
+    return () => cancelAnimationFrame(raf);
+  }, [animated]);
+
+  const svg = (
     <svg
       width={size}
       height={size}
@@ -75,11 +93,35 @@ export default function KairoMark({
         strokeWidth={sw}
         strokeLinejoin="miter"
         strokeMiterlimit={8}
+        className={animated ? "seal-guard" : undefined}
+        pathLength={animated ? 100 : undefined}
       />
-      <path d={STEM} fill={strokeColor} />
-      <path d={LEG} fill={strokeColor} />
-      <path d={BLADE} fill={`url(#${gid})`} />
-      <circle {...NODE} fill={accentColor} />
+      <path
+        d={STEM}
+        fill={strokeColor}
+        className={animated ? "seal-stem" : undefined}
+      />
+      <path
+        d={LEG}
+        fill={strokeColor}
+        className={animated ? "seal-blade-down" : undefined}
+      />
+      <path
+        d={BLADE}
+        fill={`url(#${gid})`}
+        className={animated ? "seal-blade-up" : undefined}
+      />
+      <circle {...NODE} fill={accentColor} className={animated ? "seal-node" : undefined} />
     </svg>
+  );
+
+  if (!animated) return svg;
+  return (
+    <div
+      className={`mark-live ${live ? "seal-on" : ""}`}
+      style={{ width: size, height: size, display: "inline-block" }}
+    >
+      {svg}
+    </div>
   );
 }

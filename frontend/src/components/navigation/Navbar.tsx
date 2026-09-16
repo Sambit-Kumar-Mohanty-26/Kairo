@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import KairoWordmark from "../brand/KairoWordmark";
 
 /* The bar reads like the section eyebrows rather than a stock link row:
@@ -92,10 +93,10 @@ export default function Navbar() {
           })}
         </nav>
 
-        <a href="#test-kairo" className="btn-pill-lavender text-xs !py-1.5 !px-3.5 sm:!px-4">
+        <Link href="/login" className="btn-pill-lavender text-xs !py-1.5 !px-3.5 sm:!px-4">
           <span>Enter Kairo</span>
           <span className="text-[11px] opacity-70">→</span>
-        </a>
+        </Link>
       </header>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import Reveal from "@/components/common/Reveal";
 
 /* ===========================================================================
@@ -474,12 +475,12 @@ export default function ResearchSection() {
           </Reveal>
           <Reveal delay={200}>
             <div className="flex flex-wrap items-center gap-4 mt-14">
-              <a
-                href="#test-kairo"
+              <Link
+                href="/login"
                 className="font-sans text-[14px] font-medium px-7 py-3.5 rounded-full bg-[#E4D4F8] text-[#171917] transition-transform duration-300 hover:-translate-y-0.5"
               >
                 Enter Kairo →
-              </a>
+              </Link>
               <a
                 href="#detection"
                 className="font-sans text-[14px] px-7 py-3.5 rounded-full border border-white/20 text-white/70 transition-colors duration-300 hover:text-white hover:border-white/40"
