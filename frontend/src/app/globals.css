@@ -1,0 +1,388 @@
+@import "tailwindcss";
+
+@theme {
+  --color-canvas-ivory: #FFFFEB;
+  --color-text-primary: #171917;
+  --color-text-secondary: #62665F;
+  --color-text-tertiary: #8A8E86;
+  
+  --color-border-hairline: #DCDDCB;
+  --color-border-subtle: #E8E8D8;
+  
+  --color-lavender-accent: #E4D4F8;
+  --color-lavender-light: #F0E8F8;
+  
+  --color-signal-normal: #059669;
+  --color-signal-soft: #6EE7B7;
+  --color-signal-warning: #D97706;
+  --color-signal-critical: #E11D48;
+  
+  --color-surface-instrument: #111413;
+  --color-surface-elevated: #181B19;
+  --color-surface-paper: #FFFFFF;
+
+  --font-serif: var(--font-serif), "EB Garamond", Georgia, serif;
+  --font-sans: var(--font-sans), "Figtree", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono), "JetBrains Mono", monospace;
+}
+
+:root {
+  --background: #FFFFEB;
+  --foreground: #171917;
+  --border-hairline: #DCDDCB;
+  --border-subtle: #E8E8D8;
+  
+  /* Easing curves */
+  --ease-ambient: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-tactile: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-cinematic: cubic-bezier(0.22, 1, 0.36, 1);
+  
+  /* Durations */
+  --duration-tactile: 200ms;
+  --duration-narrative: 900ms;
+}
+
+/* Base Canvas Styling */
+html {
+  /* anchor jumps glide, and land below the floating bar instead of under it */
+  scroll-behavior: smooth;
+  background-color: var(--background);
+  color: var(--foreground);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+section[id],
+div[id] {
+  scroll-margin-top: 104px;
+}
+
+/* A section whose stage is a sticky full-viewport panel has no heading to
+   clear the bar with — it IS the viewport, so it lands flush. */
+section[id]:has(> .sticky) {
+  scroll-margin-top: 0;
+}
+
+/* Signal opens on a fade-up that occupies the first 8% of its 420vh track,
+   so the bare section top is a blank frame. Land past the fade instead:
+   0.08 x (420vh - 100vh). */
+#signal-transformation {
+  scroll-margin-top: -26vh;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Tactile warm scrollbar */
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+::-webkit-scrollbar-track {
+  background: #FFFFEB;
+}
+::-webkit-scrollbar-thumb {
+  background: #DCDDCB;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #C4C4B0;
+}
+
+/* Text selection with Kairo soft lavender */
+::selection {
+  background-color: #E4D4F8;
+  color: #171917;
+}
+
+/* Typographic Scale System */
+.type-display {
+  font-family: var(--font-serif);
+  font-size: clamp(64px, 8vw, 128px);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  font-weight: 400;
+}
+
+.type-hero {
+  font-family: var(--font-serif);
+  font-size: clamp(56px, 7vw, 112px);
+  line-height: 1.04;
+  letter-spacing: -0.025em;
+  font-weight: 400;
+}
+
+.type-section-heading {
+  font-family: var(--font-serif);
+  font-size: clamp(44px, 5vw, 80px);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  font-weight: 400;
+}
+
+.type-statement {
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 4vw, 64px);
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  font-weight: 400;
+}
+
+.type-body {
+  font-family: var(--font-sans);
+  font-size: clamp(17px, 1.25vw, 21px);
+  line-height: 1.6;
+  color: #62665F;
+  font-weight: 400;
+}
+
+.type-body-sm {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  color: #62665F;
+}
+
+.type-nav {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.type-technical {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+
+.type-technical-xs {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.3;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+/* Material Surface Definitions */
+.surface-paper {
+  background-color: #FFFFEB;
+  border: 1px solid #DCDDCB;
+}
+
+.surface-instrument {
+  background-color: #111413;
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 36px -6px rgba(17, 20, 19, 0.16), 0 4px 12px -2px rgba(17, 20, 19, 0.08);
+}
+
+.surface-elevated {
+  background-color: #181B19;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+/* Tactile Pill Buttons */
+.btn-pill-lavender {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.375rem;
+  border-radius: 9999px;
+  background-color: #E4D4F8;
+  color: #171917;
+  border: 1px solid #171917;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  transition: all var(--duration-tactile) var(--ease-tactile);
+  cursor: pointer;
+  box-shadow: 0 2px 6px -1px rgba(23, 25, 23, 0.08);
+}
+
+.btn-pill-lavender:hover {
+  background-color: #D9C2F5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -2px rgba(23, 25, 23, 0.12);
+}
+
+.btn-pill-lavender:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+.btn-pill-paper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.375rem;
+  border-radius: 9999px;
+  background-color: #FFFFEB;
+  color: #171917;
+  border: 1px solid #DCDDCB;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  transition: all var(--duration-tactile) var(--ease-tactile);
+  cursor: pointer;
+}
+
+.btn-pill-paper:hover {
+  border-color: #171917;
+  background-color: #FAF8ED;
+  transform: translateY(-1px);
+}
+
+.btn-pill-paper:active {
+  transform: translateY(0px) scale(0.99);
+}
+
+/* ==========================================================================
+   CINEMATIC TEXT ANIMATIONS
+   ========================================================================== */
+@keyframes cinematicRise {
+  0% {
+    opacity: 0;
+    transform: translateY(32px);
+    filter: blur(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+@keyframes cinematicFade {
+  0% {
+    opacity: 0;
+    transform: translateY(18px);
+    filter: blur(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: blur(0);
+  }
+}
+
+/* Hero noise field: a masked band sweeps down and inks in the glyphs it
+   passes over. */
+.hero-sweep {
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 40%, #000 60%, transparent);
+  mask-image: linear-gradient(to bottom, transparent, #000 40%, #000 60%, transparent);
+  -webkit-mask-size: 100% 32%;
+  mask-size: 100% 32%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: heroSweep 8s linear 1.2s infinite;
+}
+
+@keyframes heroSweep {
+  from {
+    -webkit-mask-position: 0 -34%;
+    mask-position: 0 -34%;
+  }
+  to {
+    -webkit-mask-position: 0 134%;
+    mask-position: 0 134%;
+  }
+}
+
+/* Section 06 fabric: a short dash travels each route to the core. pathLength
+   is normalised to 100 on the path, so one keyframe fits every curve length. */
+/* Footer seal. The shield wipes up as if being raised, the decision node lands
+   on it, then the name rises letter by letter. Everything sits in its start
+   state until .seal-on arrives, so leaving and returning replays it. */
+.seal-guard { stroke-dasharray: 100; stroke-dashoffset: 100; }
+.seal-stem,
+.seal-blade-up,
+.seal-blade-down { transform-box: fill-box; }
+.seal-stem { transform-origin: bottom; transform: scaleY(0); }
+.seal-blade-up { transform-origin: left bottom; transform: scale(0); }
+.seal-blade-down { transform-origin: left top; transform: scale(0); }
+.seal-node,
+.seal-letter { opacity: 0; }
+.seal-node { transform-box: fill-box; transform-origin: center; transform: scale(0.1); }
+.seal-letter { display: inline-block; transform: translateY(0.18em); }
+
+.seal-on .seal-guard { animation: sealDraw 1150ms var(--ease-cinematic) forwards; }
+.seal-on .seal-stem { animation: sealGrow 620ms var(--ease-cinematic) 480ms forwards; }
+.seal-on .seal-blade-up { animation: sealGrow 620ms var(--ease-cinematic) 820ms forwards; }
+.seal-on .seal-blade-down { animation: sealGrow 620ms var(--ease-cinematic) 980ms forwards; }
+.seal-on .seal-node { animation: sealLand 620ms var(--ease-cinematic) 1380ms forwards; }
+.seal-on .seal-letter { animation: sealLetter 900ms var(--ease-cinematic) forwards; }
+
+@keyframes sealDraw { to { stroke-dashoffset: 0; } }
+@keyframes sealGrow { to { transform: scale(1); } }
+@keyframes sealLand {
+  60%  { opacity: 1; transform: scale(1.3); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes sealLetter { to { opacity: 1; transform: translateY(0); } }
+
+.fabric-pulse {
+  animation: dashFlow 2.8s linear infinite;
+}
+
+@keyframes dashFlow {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-cinematic-eyebrow {
+  animation: cinematicFade 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both;
+}
+
+.animate-cinematic-line-1 {
+  animation: cinematicRise 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.18s both;
+}
+
+.animate-cinematic-line-2 {
+  animation: cinematicRise 1.15s cubic-bezier(0.16, 1, 0.3, 1) 0.32s both;
+}
+
+.animate-cinematic-line-3 {
+  animation: cinematicRise 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.46s both;
+}
+
+.animate-cinematic-copy {
+  animation: cinematicFade 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.62s both;
+}
+
+.animate-cinematic-actions {
+  animation: cinematicFade 1.1s cubic-bezier(0.16, 1, 0.3, 1) 0.78s both;
+}
+
+.animate-cinematic-footer {
+  animation: cinematicFade 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.95s both;
+}
+
+/* Reduced Motion Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

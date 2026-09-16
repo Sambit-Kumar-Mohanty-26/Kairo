@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#171917"/>
+  <defs>
+    <linearGradient id="kb" x1="13.1" y1="15.66" x2="23.11" y2="7.95" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0A7A5D"/><stop offset="1" stop-color="#2AEFAF"/>
+    </linearGradient>
+  </defs>
+  <!-- same generated geometry as KairoMark, held inside the tile with the
+       guard weighted up so it survives at 16px -->
+  <g transform="translate(16 16) scale(0.78) translate(-16 -16)">
+    <path d="M16 1.37L4.4 5.58L4.4 17.51C4.47 22.28 9.86 28.85 16 30.64C22.14 28.85 27.53 22.28 27.6 17.51L27.6 5.58Z" fill="none" stroke="#FFFFEB" stroke-width="1.25" stroke-linejoin="miter" stroke-miterlimit="8"/>
+    <path d="M9.85 7.95L12.51 7.95A0.44 0.44 0 0 1 12.95 8.39L12.95 13.64A2.03 2.03 0 0 0 12.95 17.69L12.95 22.52A0.44 0.44 0 0 1 12.51 22.96L9.85 22.96A0.44 0.44 0 0 1 9.41 22.52L9.41 8.39A0.44 0.44 0 0 1 9.85 7.95Z" fill="#FFFFEB"/>
+    <path d="M13.76 17.59L18.79 22.96L22.89 22.96L16.67 16.31L15.03 16.31A2.03 2.03 0 0 1 13.76 17.59Z" fill="#FFFFEB"/>
+    <path d="M13.56 13.68L18.92 7.95L23.11 7.95L16.5 15.02L15.03 15.02A2.03 2.03 0 0 0 13.56 13.68Z" fill="url(#kb)"/>
+    <circle cx="13.1" cy="15.66" r="1.48" fill="#2AEFAF"/>
+  </g>
+</svg>
