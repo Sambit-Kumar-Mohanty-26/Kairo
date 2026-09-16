@@ -8,6 +8,11 @@ import { oauthRouter } from "./routes/oauth.js";
 
 const app = express();
 
+// Render terminates TLS at its proxy and forwards X-Forwarded-Proto. Without
+// this, req.protocol reads "http" behind it — which would build an http://
+// OAuth redirect_uri that Google rejects, and drop Secure off the state cookie.
+app.set("trust proxy", 1);
+
 app.use(express.json());
 app.use(cookieParser());
 app.use(
