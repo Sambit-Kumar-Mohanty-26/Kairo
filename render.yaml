@@ -5,14 +5,18 @@ services:
     name: kairo-api
     runtime: node
     rootDir: api
-    plan: starter # free spins down after ~15 min idle -> ~50s cold start
-    buildCommand: npm ci && npm run build
-    # Migrations run on deploy, before the new instance takes traffic.
-    preDeployCommand: npx prisma migrate deploy
+    # free spins down after ~15 min idle, so the first request then takes ~50s.
+    # Switch to starter when a cold start in a demo is unacceptable.
+    plan: free
+    # Migrations run in the build because preDeployCommand is paid-plans-only.
+    # On a paid plan, move `npx prisma migrate deploy` into preDeployCommand:
+    # it then runs after a successful build and before the new instance takes
+    # traffic, rather than migrating even when the deploy later fails.
+    buildCommand: npm ci && npm run build && npx prisma migrate deploy
     startCommand: npm start
     healthCheckPath: /health
     envVars:
-      - key: DATABASE_URL # Neon POOLED string (host contains -pooler)
+      - key: DATABASE_URL # Neon connection string (the pooled one)
         sync: false
       - key: JWT_SECRET
         generateValue: true
