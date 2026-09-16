@@ -2,19 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import FormField from "@/components/auth/FormField";
 import PasswordField from "@/components/auth/PasswordField";
 import GoogleButton from "@/components/auth/GoogleButton";
 import Divider from "@/components/auth/Divider";
-
-// TODO: point this at whichever backend/auth provider ends up wired in
-// (NextAuth, Supabase, a plain API route) — the form itself is ready.
-function submitLogin(email: string, password: string) {
-  return new Promise<void>((resolve) => setTimeout(resolve, 900));
-}
+import { login, googleUrl } from "@/lib/auth";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,8 +23,13 @@ export default function LoginPage() {
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     setError(null);
     setLoading(true);
-    await submitLogin(email, password);
-    setLoading(false);
+    try {
+      await login(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setLoading(false);
+    }
   };
 
   return (
@@ -44,7 +46,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      <GoogleButton label="Continue with Google" />
+      <GoogleButton label="Continue with Google" onClick={() => { window.location.href = googleUrl(); }} />
       <Divider label="or with email" />
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-6">

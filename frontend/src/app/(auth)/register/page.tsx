@@ -2,18 +2,16 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import FormField from "@/components/auth/FormField";
 import PasswordField from "@/components/auth/PasswordField";
 import GoogleButton from "@/components/auth/GoogleButton";
 import Divider from "@/components/auth/Divider";
-
-// TODO: same as login — wire to a real provider once one exists.
-function submitRegister(email: string, password: string) {
-  return new Promise<void>((resolve) => setTimeout(resolve, 900));
-}
+import { register, googleUrl } from "@/lib/auth";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -32,8 +30,15 @@ export default function RegisterPage() {
     if (Object.keys(next).length) return;
 
     setLoading(true);
-    await submitRegister(email, password);
-    setLoading(false);
+    try {
+      await register(email, password);
+      router.push("/dashboard");
+    } catch (err) {
+      // a taken address is the one register error the user can act on, so it
+      // belongs on the email field rather than in a generic banner
+      setErrors({ email: err instanceof Error ? err.message : "Something went wrong." });
+      setLoading(false);
+    }
   };
 
   return (
@@ -50,7 +55,7 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      <GoogleButton label="Sign up with Google" />
+      <GoogleButton label="Sign up with Google" onClick={() => { window.location.href = googleUrl(); }} />
       <Divider label="or with email" />
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">

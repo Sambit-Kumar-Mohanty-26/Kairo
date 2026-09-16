@@ -4,10 +4,8 @@ import React from "react";
 import GoogleGlyph from "./GoogleGlyph";
 
 /**
- * Not wired to a provider yet — there is no backend in this repo to hand a
- * token to. Swap onClick for the real call (NextAuth `signIn("google")`,
- * Supabase `signInWithOAuth`, etc.) once one exists; the button itself is
- * done.
+ * Sends the browser to the backend's /auth/google/start, which hands off to
+ * Google and redirects back to /auth/callback with tokens in the fragment.
  */
 export default function GoogleButton({
   label,

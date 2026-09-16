@@ -1,0 +1,41 @@
+# One blueprint, one service per folder. Render builds only the folder named by
+# rootDir, so the Python ML service can join later without touching this one.
+services:
+  - type: web
+    name: kairo-api
+    runtime: node
+    rootDir: api
+    plan: starter # free spins down after ~15 min idle -> ~50s cold start
+    buildCommand: npm ci && npm run build
+    # Migrations run on deploy, before the new instance takes traffic.
+    preDeployCommand: npx prisma migrate deploy
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL # Neon POOLED string (host contains -pooler)
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS # exact Vercel origin, no trailing slash
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM # must be a domain verified in Resend
+        sync: false
+
+  # When the model exists, the ML service is added here — same repo, own folder,
+  # own runtime, deployed and scaled independently:
+  #
+  # - type: web
+  #   name: kairo-ml
+  #   runtime: python
+  #   rootDir: ml
+  #   buildCommand: pip install -r requirements.txt
+  #   startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+  #   healthCheckPath: /health

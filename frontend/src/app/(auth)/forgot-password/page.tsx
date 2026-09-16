@@ -5,10 +5,7 @@ import Link from "next/link";
 import { ArrowRight, ArrowLeft, MailCheck } from "lucide-react";
 import FormField from "@/components/auth/FormField";
 
-// TODO: wire to a real provider once one exists.
-function submitReset(email: string) {
-  return new Promise<void>((resolve) => setTimeout(resolve, 900));
-}
+import { forgotPassword } from "@/lib/auth";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -21,9 +18,13 @@ export default function ForgotPasswordPage() {
     if (!email.includes("@")) return setError("Enter a valid email address.");
     setError(null);
     setLoading(true);
-    await submitReset(email);
+    try {
+      await forgotPassword(email);
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
     setLoading(false);
-    setSent(true);
   };
 
   if (sent) {
