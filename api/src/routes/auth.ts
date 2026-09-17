@@ -62,8 +62,9 @@ authRouter.post(
       throw new HttpError(409, "An account with this email already exists.");
     }
 
-    // No workspace field on the form, so fall back to the email domain:
-    // ana@acme.io -> "acme". Renameable later.
+    // The register form asks for this, and Google sign-in cannot. The domain
+    // fallback is for that path: ana@acme.io -> "acme", renameable in
+    // Settings. Better a name the owner recognises than an empty workspace.
     const orgName = (body.organization_name ?? address.split("@")[1].split(".")[0])
       .trim()
       .slice(0, 120);

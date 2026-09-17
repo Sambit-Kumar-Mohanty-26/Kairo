@@ -22,7 +22,7 @@ const NAV = [
 
 export default function DashboardShell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
-  const { office, setOffice, offices, org } = useConsole();
+  const { office, setOffice, offices, org, mode, live } = useConsole();
 
   return (
     <div className="min-h-screen bg-[#FFFFEB] text-[#171917] lg:grid lg:grid-cols-[228px_1fr]">
@@ -80,9 +80,13 @@ export default function DashboardShell({ children }: { children: React.ReactNode
             <Settings className="w-3.5 h-3.5" />
             <span className="text-[13.5px] font-medium">Settings</span>
           </Link>
+          {/* The one place that says, at a glance, whether anything on screen is
+              real. It was hardcoded to "Fixture data" while Live Mode existed. */}
           <div className="px-7 pb-6">
             <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-[#8A8E86]">
-              Fixture data
+              {mode === "live"
+                ? `${live.sensorsLive} of ${live.sensorsTotal} live`
+                : "Fixture data"}
             </span>
           </div>
         </div>
@@ -159,21 +163,68 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   );
 }
 
-/* §12's switch, present from day one. Live is off because there is no
-   collector — saying so is more useful than hiding the control. */
+/* §12's switch. Test runs the fixtures; Live polls the API for whatever the
+   sensors have actually reported. Live needs a session — the fixtures are a
+   demo anyone may click through, a fleet is one tenant's real topology — so
+   when there is no token the control says what to do about it rather than
+   going quiet. */
 function ModeSwitch() {
+  const { mode, setMode, canGoLive, live } = useConsole();
+
+  // In Live Mode the dot is the fleet's own state, not a decoration: green
+  // once a sensor has reported inside the two-minute window, amber while
+  // nothing has, rose when the feed itself is failing.
+  const dot = !live.loaded
+    ? "#FBBF24"
+    : live.error
+      ? "#E11D48"
+      : live.sensorsLive > 0
+        ? "#16DFA0"
+        : "#FBBF24";
+
+  const liveTitle = !canGoLive
+    ? "Sign in to connect a network"
+    : !live.loaded
+      ? "Connecting to the live feed"
+      : live.error
+        ? live.error
+        : `${live.sensorsLive} of ${live.sensorsTotal} sensor${live.sensorsTotal === 1 ? "" : "s"} reporting`;
+
   return (
     <div className="ml-auto flex items-center rounded-full border border-[#DCDDCB] p-0.5">
-      <span className="flex items-center gap-1.5 rounded-full bg-[#171917] px-3 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#FFFFEB]">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#16DFA0]" />
-        Test
-      </span>
-      <span
-        className="px-3 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] text-[#C9CBBE] cursor-not-allowed"
-        title="Live Mode requires a network collector"
+      <button
+        onClick={() => setMode("test")}
+        aria-pressed={mode === "test"}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] transition-colors duration-200 ${
+          mode === "test"
+            ? "bg-[#171917] text-[#FFFFEB]"
+            : "text-[#8A8E86] hover:text-[#171917]"
+        }`}
       >
+        {mode === "test" && <span className="w-1.5 h-1.5 rounded-full bg-[#16DFA0]" />}
+        Test
+      </button>
+      <button
+        onClick={() => canGoLive && setMode("live")}
+        aria-pressed={mode === "live"}
+        disabled={!canGoLive}
+        title={liveTitle}
+        className={`flex items-center gap-1.5 rounded-full px-3 py-1 font-mono text-[9.5px] uppercase tracking-[0.16em] transition-colors duration-200 ${
+          mode === "live"
+            ? "bg-[#171917] text-[#FFFFEB]"
+            : canGoLive
+              ? "text-[#8A8E86] hover:text-[#171917]"
+              : "text-[#C9CBBE] cursor-not-allowed"
+        }`}
+      >
+        {mode === "live" && (
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ backgroundColor: dot }}
+          />
+        )}
         Live
-      </span>
+      </button>
     </div>
   );
 }

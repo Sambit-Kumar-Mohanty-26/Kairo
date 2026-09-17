@@ -16,6 +16,7 @@ model Organization {
   slug      String   @unique @db.VarChar(140)
   createdAt DateTime @default(now()) @map("created_at")
   users     User[]
+  offices   Office[]
 
   @@map("organizations")
 }
@@ -69,4 +70,145 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+/// Four levels, always populated: Organization > Office > Network > Sensor.
+/// The landing page promises exactly this, and a detection is useless without
+/// it — "something attacked 10.20.1.10" against "the router fronting the
+/// Bangalore DMZ is under a SYN flood".
+model Office {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  name           String   @db.VarChar(120)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  networks     Network[]
+
+  @@unique([organizationId, name])
+  @@map("offices")
+}
+
+/// A subnet, named. CIDR rather than a VLAN tag: it is what an operator can
+/// read off their own router without asking anyone, and it is what lets a
+/// flow's addresses be attributed to a network without the agent being told.
+model Network {
+  id        String   @id @default(uuid()) @db.Uuid
+  officeId  String   @map("office_id") @db.Uuid
+  name      String   @db.VarChar(120)
+  /// 43 chars fits the longest IPv6 CIDR.
+  cidr      String   @db.VarChar(43)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  office  Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  sensors Sensor[]
+
+  @@unique([officeId, name])
+  @@map("networks")
+}
+
+/// A capture point. Holds no model and no thresholds — it computes flow
+/// statistics and posts them. Its key is stored as a SHA-256 hash for the same
+/// reason refresh tokens are: a database leak must not hand over live ingest.
+model Sensor {
+  id          String    @id @default(uuid()) @db.Uuid
+  networkId   String    @map("network_id") @db.Uuid
+  name        String    @db.VarChar(120)
+  keyHash     String    @unique @map("key_hash") @db.VarChar(64)
+  /// Set on every accepted batch. "Live" is derived from this, not stored.
+  lastSeenAt  DateTime? @map("last_seen_at")
+  /// The last batch this sensor got a 200 for. A retry after a lost response
+  /// carries the same id and is answered without touching anything: detection
+  /// rows dedupe on (sensor, flow) anyway, but the minute counters increment,
+  /// so without this a retry inflates "flows analysed".
+  /// ponytail: one slot, not a table. It catches the retry that immediately
+  /// follows its own batch, which is every retry the agent actually makes. A
+  /// batch replayed after a later one has landed would still double-count —
+  /// give it its own table if that ever stops being hypothetical.
+  lastBatchId String?   @map("last_batch_id") @db.VarChar(64)
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  network    Network      @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  detections Detection[]
+  rollups    FlowRollup[]
+
+  @@unique([networkId, name])
+  @@map("sensors")
+}
+
+/// One row per attack verdict. Benign flows never become rows — they become
+/// counters in FlowRollup, which is the difference between a table that grows
+/// with attacks and one that grows with traffic.
+model Detection {
+  id             String @id @default(uuid()) @db.Uuid
+  sensorId       String @map("sensor_id") @db.Uuid
+  /// Denormalised from sensor > network > office: every console query is
+  /// org-scoped and time-ordered, and three joins to get there is the query
+  /// that gets slow first.
+  organizationId String @map("organization_id") @db.Uuid
+
+  /// The agent's own id for the flow. Unique per sensor, so a retried batch
+  /// after a timeout is idempotent instead of duplicated.
+  flowId     String @map("flow_id") @db.VarChar(64)
+  attack     String @db.VarChar(20)
+  confidence Float
+  risk       Int    @db.SmallInt
+  severity   String @db.VarChar(10)
+  /// What the model weighed, as returned by /predict. Stored because an
+  /// explanation that cannot be shown later is not an explanation.
+  features   Json
+  modelTag   String @map("model_tag") @db.VarChar(40)
+
+  sourceIp   String   @map("source_ip") @db.VarChar(45)
+  sourcePort Int      @map("source_port")
+  targetIp   String   @map("target_ip") @db.VarChar(45)
+  targetPort Int      @map("target_port")
+  protocol   String   @db.VarChar(8)
+  startedAt  DateTime @map("started_at")
+
+  /// new | acknowledged | investigating | resolved | false-positive. Every
+  /// change is an audit row: a resolved or false-positive verdict is a
+  /// labelled flow, so who labelled it is part of the training data.
+  status    String           @default("new") @db.VarChar(16)
+  createdAt DateTime         @default(now()) @map("created_at")
+  sensor    Sensor           @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+  events    DetectionEvent[]
+
+  @@unique([sensorId, flowId])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, status])
+  @@map("detections")
+}
+
+/// Who changed a verdict and when. The Model tab counts resolved and
+/// false-positive rows as training labels, so the provenance of a label is
+/// part of the training data, not UI history.
+model DetectionEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  detectionId String   @map("detection_id") @db.Uuid
+  userId      String?  @map("user_id") @db.Uuid
+  status      String   @db.VarChar(16)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  detection Detection @relation(fields: [detectionId], references: [id], onDelete: Cascade)
+
+  @@index([detectionId])
+  @@map("detection_events")
+}
+
+/// Benign traffic as counters, one row per sensor per minute. This is what
+/// makes "flows analysed" a real number without storing a row per flow.
+model FlowRollup {
+  id       String   @id @default(uuid()) @db.Uuid
+  sensorId String   @map("sensor_id") @db.Uuid
+  minute   DateTime @db.Timestamptz(3)
+  flows    Int      @default(0)
+  attacks  Int      @default(0)
+  bytes    BigInt   @default(0)
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([sensorId, minute])
+  @@map("flow_rollups")
 }

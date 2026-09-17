@@ -349,7 +349,7 @@ export default function NetworkFabricSection() {
               <p className="type-body-sm leading-relaxed max-w-[62ch] mt-6">
                 Four levels, always populated. It is the difference between
                 &ldquo;something attacked 10.20.1.10&rdquo; and &ldquo;the
-                router fronting the Bangalore data centre is under a SYN
+                router fronting the Bangalore data centre is absorbing an HTTP
                 flood&rdquo; — and it is why one deployment can cover an estate
                 without the alerts turning into noise.
               </p>
@@ -361,8 +361,8 @@ export default function NetworkFabricSection() {
           <div className="py-14 sm:py-20 grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
             {[
               [
-                "Sensors stay dumb",
-                "A router forwards flow records. It holds no model, no thresholds and no state — so adding a site is a registration, not a rollout.",
+                "Sensors stay thin",
+                "A small agent measures flows and forwards the numbers. It holds no model, no thresholds and no state — so adding a site is a registration, not a rollout.",
               ],
               [
                 "The core stays single",

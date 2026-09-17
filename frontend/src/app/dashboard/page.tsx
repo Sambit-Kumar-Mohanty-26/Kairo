@@ -11,15 +11,20 @@ import DetectionTable, { sevColour } from "@/components/dashboard/DetectionTable
 import DetailPane from "@/components/dashboard/DetailPane";
 import { CRITICAL_AT, attackMix, type Detection } from "@/lib/demo";
 
+/** One colour per family. All seven, because the mix is now counted off the
+ *  detections and any of them can appear. */
 const MIX_COLOUR: Record<string, string> = {
   DDoS: "#E11D48",
+  DoS: "#F43F5E",
   "Port Scan": "#D97706",
   "Brute Force": "#059669",
+  "Web Attack": "#7C3AED",
   Botnet: "#8A8E86",
 };
 
 export default function OverviewPage() {
-  const { detections, traffic, risk, threats, critical, landed, setStatus, office } = useConsole();
+  const { detections, traffic, risk, threats, critical, landed, setStatus, office, mode, live } =
+    useConsole();
   const [selected, setSelected] = useState<Detection | null>(null);
 
   const mix = useMemo(() => attackMix(detections), [detections]);
@@ -62,7 +67,9 @@ export default function OverviewPage() {
             Live Signal
           </span>
           <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-[#8A8E86]">
-            Test Mode · fixture feed
+            {mode === "live"
+              ? `Live Mode · ${live.sensorsLive} of ${live.sensorsTotal} sensors`
+              : "Test Mode · fixture feed"}
           </span>
         </div>
         <div className="grid md:grid-cols-[280px_1fr] divide-y md:divide-y-0 md:divide-x divide-white/[0.08]">
@@ -72,8 +79,10 @@ export default function OverviewPage() {
           <div className="p-7 flex flex-col justify-center gap-5">
             <SignalStrip landed={landed} severity={newest?.severity ?? "normal"} />
             <div className="flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.16em] text-[#8A8E86]">
-              <span>Flows / second</span>
-              <span className="tabular-nums text-white">{(traffic % 900) + 180}</span>
+              <span>{mode === "live" ? "Flows analysed · 24h" : "Flows / second"}</span>
+              <span className="tabular-nums text-white">
+                {mode === "live" ? traffic.toLocaleString() : (traffic % 900) + 180}
+              </span>
             </div>
           </div>
         </div>

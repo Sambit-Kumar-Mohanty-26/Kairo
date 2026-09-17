@@ -265,7 +265,14 @@ export function simulateDetection(attack: Scenario, office: string, sensor: stri
 export const criticalCount = (d: Detection[]) => d.filter((x) => x.risk >= CRITICAL_AT).length;
 
 export function attackMix(d: Detection[]): [Scenario, number][] {
-  return MIX.map(([a]) => [a, d.filter((x) => x.attack === a).length]);
+  // Counted off the detections themselves, not off MIX's seed distribution:
+  // Test Mode can simulate DoS and Web Attack and Live Mode reports whatever
+  // the model named, and both were invisible in the legend while this mapped
+  // over a fixed list of four. Zeroes are dropped — a legend entry for
+  // something that did not happen is noise.
+  return SCENARIOS.filter((a) => a !== "Normal")
+    .map((a) => [a, d.filter((x) => x.attack === a).length] as [Scenario, number])
+    .filter(([, n]) => n > 0);
 }
 
 /* ---------------------------------------------------------------------------

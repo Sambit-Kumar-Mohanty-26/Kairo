@@ -20,8 +20,32 @@ import {
   type Scenario,
   type Status,
 } from "@/lib/demo";
+import { getAccessToken } from "@/lib/auth";
+import { setDetectionStatus, snapshot } from "@/lib/live";
 
 type Mode = "test" | "live";
+
+/** Test Mode's fixtures and Live Mode's snapshot are kept in separate buckets,
+ *  never merged. Sharing one would mean a toggle to Live wipes the demo and a
+ *  toggle back cannot restore it — and the whole point of the switch is that
+ *  both are available at once. */
+interface Feed {
+  all: Detection[];
+  traffic: number;
+  risk: number;
+  org: string;
+  offices: Office[];
+}
+
+interface LiveFeed extends Feed {
+  sensorsTotal: number;
+  sensorsLive: number;
+  /** null while it is working, a message once it is not. */
+  error: string | null;
+  /** False until the first snapshot lands, so the console can say "connecting"
+   *  rather than "nothing is happening". */
+  loaded: boolean;
+}
 
 type Console = {
   detections: Detection[];
@@ -41,6 +65,13 @@ type Console = {
   addSource: (office: string, name: string) => void;
   removeSource: (office: string, name: string) => void;
   mode: Mode;
+  setMode: (m: Mode) => void;
+  /** Live Mode needs a session; Test Mode never does. */
+  canGoLive: boolean;
+  live: Pick<LiveFeed, "sensorsTotal" | "sensorsLive" | "error" | "loaded">;
+  /** Re-poll now. Settings calls it after registering a sensor, so the fleet
+      appears without waiting out the interval. */
+  refreshLive: () => void;
   /** The id of the detection that just landed, or null. Drives the one
       narrative moment — dial seek, odometer roll, waveform spike. */
   landed: string | null;
@@ -51,6 +82,12 @@ type Console = {
 const Ctx = createContext<Console | null>(null);
 const KEY = "kairo.console";
 
+/** Five seconds. The agent flushes every ten and a flow waits fifteen for its
+ *  idle timeout, so polling faster than this cannot surface anything sooner —
+ *  it only costs requests. Server-sent events are the upgrade when a detection
+ *  needs to arrive the instant it exists. */
+const POLL_MS = 5_000;
+
 /** Every field optional: a tab left open across a deploy hands back whatever
     shape the previous build wrote. */
 type Saved = Partial<{
@@ -59,7 +96,20 @@ type Saved = Partial<{
   risk: number;
   org: string;
   offices: Office[];
+  mode: Mode;
 }>;
+
+const EMPTY_LIVE: LiveFeed = {
+  all: [],
+  traffic: 0,
+  risk: 0,
+  org: "",
+  offices: [],
+  sensorsTotal: 0,
+  sensorsLive: 0,
+  error: null,
+  loaded: false,
+};
 
 export function useConsole() {
   const c = useContext(Ctx);
@@ -79,6 +129,12 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
   const [org, setOrg] = useState("ABC Technologies");
   const [offices, setOffices] = useState<Office[]>(OFFICES);
 
+  const [mode, setModeState] = useState<Mode>("test");
+  const [canGoLive, setCanGoLive] = useState(false);
+  const [ls, setLs] = useState<LiveFeed>(EMPTY_LIVE);
+  // Bumped to force a poll outside the interval.
+  const [pollNonce, setPollNonce] = useState(0);
+
   // Survives a reload mid-demo. sessionStorage, not local — a new tab should
   // start from the clean seed.
   useEffect(() => {
@@ -90,9 +146,12 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
       if (s.risk) setRisk(s.risk);
       if (s.org) setOrg(s.org);
       if (s.offices?.length) setOffices(s.offices);
+      if (s.mode) setModeState(s.mode);
     } else {
       setAll(seedDetections(Date.now()));
     }
+    // localStorage, so this has to wait for the client.
+    setCanGoLive(Boolean(getAccessToken()));
     setReady(true);
   }, []);
 
@@ -100,15 +159,77 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
   // the whole log each time for nothing.
   useEffect(() => {
     if (!ready) return;
-    sessionStorage.setItem(KEY, JSON.stringify({ all, traffic, risk, org, offices }));
+    sessionStorage.setItem(KEY, JSON.stringify({ all, traffic, risk, org, offices, mode }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ready, all, risk, org, offices]);
+  }, [ready, all, risk, org, offices, mode]);
 
-  // Ambient: flows keep arriving whether or not anything is wrong.
+  // Ambient: flows keep arriving whether or not anything is wrong. Test Mode
+  // only — in Live Mode the counter is a real sum and inventing additions to
+  // it would be a lie told by an animation.
   useEffect(() => {
+    if (mode !== "test") return;
     const t = setInterval(() => setTraffic((n) => n + 3 + Math.floor(Math.random() * 12)), 1600);
     return () => clearInterval(t);
+  }, [mode]);
+
+  // The live feed. One request per tick returns the whole dashboard, so there
+  // is nothing to reconcile: the snapshot replaces the previous one.
+  useEffect(() => {
+    if (!ready || mode !== "live") return;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const s = await snapshot();
+        if (cancelled) return;
+        setLs({
+          all: s.detections,
+          traffic: s.traffic,
+          // The risk index is the worst thing standing, not an average: one
+          // critical detection among a hundred quiet ones is the number the
+          // operator needs to see.
+          risk: s.detections.reduce((m, d) => Math.max(m, d.risk), 0),
+          org: s.org,
+          offices: s.offices,
+          sensorsTotal: s.sensors_total,
+          sensorsLive: s.sensors_live,
+          error: null,
+          loaded: true,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        // Keep the last good snapshot on screen and say the feed is stale.
+        // Blanking the console because one poll failed is worse than stale.
+        setLs((p) => ({
+          ...p,
+          error: err instanceof Error ? err.message : "The live feed is unreachable.",
+        }));
+      }
+    };
+
+    void tick();
+    const t = setInterval(tick, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [ready, mode, pollNonce]);
+
+  const refreshLive = useCallback(() => setPollNonce((n) => n + 1), []);
+
+  const setMode = useCallback((m: Mode) => {
+    setModeState(m);
+    // A stale snapshot from the last time Live was open would flash on screen
+    // before the first poll answers.
+    if (m === "live") setLs((p) => ({ ...p, loaded: false, error: null }));
   }, []);
+
+  // The moment is a moment. Clear it so a second run re-fires the animations.
+  useEffect(() => {
+    if (!landed) return;
+    const t = setTimeout(() => setLanded(null), 1800);
+    return () => clearTimeout(t);
+  }, [landed]);
 
   const run = useCallback((attack: Scenario, o: string, sensor: string) => {
     const d = simulateDetection(attack, o, sensor);
@@ -119,16 +240,20 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
     return d;
   }, []);
 
-  // The moment is a moment. Clear it so a second run re-fires the animations.
-  useEffect(() => {
-    if (!landed) return;
-    const t = setTimeout(() => setLanded(null), 1800);
-    return () => clearTimeout(t);
-  }, [landed]);
-
-  const setStatus = useCallback((id: string, status: Status) => {
-    setAll((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
-  }, []);
+  const setStatus = useCallback(
+    (id: string, status: Status) => {
+      if (mode === "live") {
+        // Optimistic: triage is a click and it should feel like one. The next
+        // poll is the authority, so a rejected write corrects itself within
+        // five seconds rather than needing its own error state.
+        setLs((p) => ({ ...p, all: p.all.map((d) => (d.id === id ? { ...d, status } : d)) }));
+        void setDetectionStatus(id, status).catch(() => setPollNonce((n) => n + 1));
+        return;
+      }
+      setAll((prev) => prev.map((d) => (d.id === id ? { ...d, status } : d)));
+    },
+    [mode],
+  );
 
   const addOffice = useCallback((name: string) => {
     const n = name.trim();
@@ -160,28 +285,41 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
     );
   }, []);
 
+  // One selection, at the edge. Everything above writes to its own bucket and
+  // never has to know which mode is showing.
+  const feed: Feed = mode === "live" ? ls : { all, traffic, risk, org, offices };
+
   const detections = useMemo(
-    () => (office === "all" ? all : all.filter((d) => d.office === office)),
-    [all, office],
+    () => (office === "all" ? feed.all : feed.all.filter((d) => d.office === office)),
+    [feed.all, office],
   );
 
   const value = useMemo<Console>(
     () => ({
       detections,
-      traffic,
-      risk,
+      traffic: feed.traffic,
+      risk: feed.risk,
       threats: detections.length,
       critical: criticalCount(detections),
       office,
       setOffice,
-      mode: "test",
+      mode,
+      setMode,
+      canGoLive,
+      live: {
+        sensorsTotal: ls.sensorsTotal,
+        sensorsLive: ls.sensorsLive,
+        error: ls.error,
+        loaded: ls.loaded,
+      },
+      refreshLive,
       landed,
       run,
       setStatus,
-      allDetections: all,
-      org,
+      allDetections: feed.all,
+      org: feed.org,
       setOrg,
-      offices,
+      offices: feed.offices,
       addOffice,
       removeOffice,
       addSource,
@@ -189,15 +327,23 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
     }),
     [
       detections,
-      all,
-      traffic,
-      risk,
+      feed.all,
+      feed.traffic,
+      feed.risk,
+      feed.org,
+      feed.offices,
       office,
+      mode,
+      setMode,
+      canGoLive,
+      ls.sensorsTotal,
+      ls.sensorsLive,
+      ls.error,
+      ls.loaded,
+      refreshLive,
       landed,
       run,
       setStatus,
-      org,
-      offices,
       addOffice,
       removeOffice,
       addSource,

@@ -12,16 +12,24 @@ import { register, googleUrl } from "@/lib/auth";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const [organization, setOrganization] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [errors, setErrors] = useState<{ password?: string; confirm?: string; email?: string; agree?: string }>({});
+  const [errors, setErrors] = useState<{
+    organization?: string;
+    password?: string;
+    confirm?: string;
+    email?: string;
+    agree?: string;
+  }>({});
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
+    if (!organization.trim()) next.organization = "Enter your organization's name.";
     if (!email.includes("@")) next.email = "Enter a valid email address.";
     if (password.length < 8) next.password = "Password must be at least 8 characters.";
     if (confirm !== password) next.confirm = "Passwords don't match.";
@@ -31,7 +39,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      await register(email, password);
+      await register(email, password, organization.trim());
       router.push("/dashboard");
     } catch (err) {
       // a taken address is the one register error the user can act on, so it
@@ -51,7 +59,7 @@ export default function RegisterPage() {
           Set up Kairo.
         </h1>
         <p className="text-[14px] leading-snug text-[#62665F] max-w-[34ch]">
-          One account covers every office, router, and sensor you connect.
+          One account covers every office, network, and sensor you connect.
         </p>
       </div>
 
@@ -59,6 +67,15 @@ export default function RegisterPage() {
       <Divider label="or with email" />
 
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
+        <FormField
+          label="Organization"
+          autoComplete="organization"
+          placeholder="Acme Technologies"
+          value={organization}
+          onChange={(e) => setOrganization(e.target.value)}
+          error={errors.organization}
+          hint={errors.organization ? undefined : "Appears on every alert. Renameable in Settings."}
+        />
         <FormField
           label="Email"
           type="email"

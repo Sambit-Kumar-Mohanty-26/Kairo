@@ -150,6 +150,36 @@ def test_console_only_names_features_the_model_has():
     assert not named - kept, f"console names features the model never saw: {sorted(named - kept)}"
 
 
+def test_agent_emits_exactly_the_selected_features():
+    """agent/flow.py computes the model's input. It must be the same 30 names.
+
+    The agent is in a third language with no shared type: if selection.json
+    changes and flow.py does not, /predict rejects every batch a sensor sends —
+    the fleet goes quiet and nothing says why. One missing name here is a
+    site-wide outage, which is why this is a test and not a comment.
+    """
+    import json
+    import re
+
+    sel = Path(__file__).resolve().parents[1] / "artifacts" / "selection.json"
+    if not sel.exists():
+        return  # fresh checkout, nothing selected yet
+    kept = json.loads(sel.read_text(encoding="utf-8"))["selected"]
+
+    flow = Path(__file__).resolve().parents[2] / "agent" / "flow.py"
+    block = re.search(r"FEATURES\s*=\s*\(?\[(.*?)\]", flow.read_text(encoding="utf-8"), re.S)
+    assert block, "FEATURES not found — did agent/flow.py change shape?"
+    emitted = re.findall(r'"([^"]+)"', block.group(1))
+
+    assert set(emitted) == set(kept), (
+        f"agent missing {sorted(set(kept) - set(emitted))}, "
+        f"extra {sorted(set(emitted) - set(kept))}"
+    )
+    # Order too: the service builds its matrix from the selection order, and a
+    # dict that happens to iterate differently is a silent column swap.
+    assert emitted == kept, "agent's FEATURES are in a different order"
+
+
 if __name__ == "__main__":
     # definition order, not alphabetical — the later checks need the model the
     # round-trip check trains

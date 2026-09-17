@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Talks to the FastAPI backend (Render) from the browser.
+ * Talks to the Express API (Render) from the browser.
  *
  * Bearer tokens, not cookies: the frontend lives on one registrable domain
  * (vercel.app) and the API on another (onrender.com), so a session cookie
@@ -42,7 +42,9 @@ export class ApiError extends Error {
   }
 }
 
-/** FastAPI puts a string in `detail` for HTTPException and a list for 422. */
+/** The API puts a string in `detail`. The array branch is FastAPI's 422
+ *  shape, kept because the OAuth callback is the one route that can still
+ *  answer in it. */
 function readDetail(body: unknown, fallback: string): string {
   const detail = (body as { detail?: unknown } | null)?.detail;
   if (typeof detail === "string") return detail;
@@ -82,10 +84,10 @@ function clearSession() {
   localStorage.removeItem(REFRESH);
 }
 
-export function register(email: string, password: string) {
+export function register(email: string, password: string, organization: string) {
   return request<TokenPair>("/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, organization_name: organization }),
   }).then((t) => (storeSession(t), t));
 }
 
@@ -114,12 +116,18 @@ export function googleUrl() {
   return `${API}/auth/google/start`;
 }
 
-/** Refreshes once on 401, since the access token only lasts 30 minutes. */
-export async function me(): Promise<User> {
+/** Runs an authenticated request, refreshing once on 401 — the access token
+ *  only lasts 30 minutes and the console polls for longer than that. Every
+ *  signed-in call goes through here, so the retry is written once. */
+export async function authed<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAccessToken();
   if (!token) throw new ApiError(401, "Not signed in.");
+
+  const call = (t: string) =>
+    request<T>(path, { ...init, headers: { ...init.headers, Authorization: `Bearer ${t}` } });
+
   try {
-    return await request<User>("/auth/me", { headers: { Authorization: `Bearer ${token}` } });
+    return await call(token);
   } catch (e) {
     if (!(e instanceof ApiError) || e.status !== 401) throw e;
     const refresh = localStorage.getItem(REFRESH);
@@ -132,9 +140,11 @@ export async function me(): Promise<User> {
       throw e;
     });
     storeSession(pair);
-    return pair.user;
+    return call(pair.access_token);
   }
 }
+
+export const me = () => authed<User>("/auth/me");
 
 export async function logout() {
   const refresh = localStorage.getItem(REFRESH);

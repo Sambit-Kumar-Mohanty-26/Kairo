@@ -4,6 +4,9 @@ import express from "express";
 import { config, googleEnabled } from "./config.js";
 import { errorHandler } from "./middleware.js";
 import { authRouter } from "./routes/auth.js";
+import { fleetRouter } from "./routes/fleet.js";
+import { ingestRouter } from "./routes/ingest.js";
+import { liveRouter } from "./routes/live.js";
 import { mlRouter } from "./routes/ml.js";
 import { oauthRouter } from "./routes/oauth.js";
 
@@ -32,6 +35,9 @@ app.get("/health", (_req, res) => {
 app.use("/auth", authRouter);
 app.use("/auth", oauthRouter);
 app.use("/ml", mlRouter);
+app.use("/fleet", fleetRouter);
+app.use("/live", liveRouter);
+app.use("/ingest", ingestRouter);
 
 app.use(errorHandler);
 
