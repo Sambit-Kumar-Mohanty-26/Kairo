@@ -1,0 +1,60 @@
+{
+  "tag": "v1.0-cascade",
+  "trainedAt": "2026-09-17",
+  "dataset": "CICIDS2017 - 253,240 flows",
+  "accuracy": 0.9989,
+  "macroF1": 0.9945,
+  "trainSeconds": 240.2,
+  "deployed": "Two-Stage Cascade",
+  "classes": [
+    {
+      "cls": "Normal",
+      "precision": 0.9992,
+      "recall": 0.9977,
+      "f1": 0.9984,
+      "support": 12000
+    },
+    {
+      "cls": "DDoS",
+      "precision": 0.9997,
+      "recall": 0.9998,
+      "f1": 0.9997,
+      "support": 12000
+    },
+    {
+      "cls": "DoS",
+      "precision": 0.999,
+      "recall": 0.9994,
+      "f1": 0.9992,
+      "support": 12000
+    },
+    {
+      "cls": "Port Scan",
+      "precision": 0.9994,
+      "recall": 0.9992,
+      "f1": 0.9993,
+      "support": 12000
+    },
+    {
+      "cls": "Brute Force",
+      "precision": 0.9995,
+      "recall": 0.9995,
+      "f1": 0.9995,
+      "support": 1830
+    },
+    {
+      "cls": "Web Attack",
+      "precision": 0.9861,
+      "recall": 0.9953,
+      "f1": 0.9907,
+      "support": 429
+    },
+    {
+      "cls": "Botnet",
+      "precision": 0.9624,
+      "recall": 0.9871,
+      "f1": 0.9746,
+      "support": 389
+    }
+  ]
+}

@@ -8,7 +8,9 @@ import React, { useEffect, useRef, useState } from "react";
    Normal (released downward) and Malicious (escalated). Gate 02 fans the
    malicious ones into six named lanes, and the lane counters tick up.
 
-   This is the two-stage cascade from the spec, running rather than described.
+   This is the deployed architecture, running rather than described: the model
+   in ml/ gates every flow first and only names what passes. The motion is
+   illustrative and the footer says so — but the shape is not invented.
    =========================================================================== */
 
 const LANES = [
@@ -20,10 +22,14 @@ const LANES = [
   "Web Attack",
 ];
 
-// Roughly the class balance of the training data: mostly benign, and the
-// attack classes are far from even. The imbalance is the point.
-const LANE_WEIGHTS = [0.3, 0.19, 0.22, 0.13, 0.09, 0.07];
-const MALICIOUS_RATE = 0.34;
+/* The capture's real attack mix, square-rooted and renormalised. Raw shares
+   are DDoS .230 / DoS .453 / Port Scan .285 / Brute Force .025 / Botnet .0035
+   / Web Attack .004 — at this flow rate a true Botnet lane ticks once a
+   minute and reads as broken, so the compression buys visible rarity while
+   keeping the ordering. The footer says the mix is compressed; the previous
+   weights claimed to be the training balance and were nobody's numbers. */
+const LANE_WEIGHTS = [0.244, 0.343, 0.272, 0.08, 0.03, 0.031];
+const MALICIOUS_RATE = 0.197;
 
 const INK = "#0B0E0D";
 const GREY = [138, 142, 134] as const;
@@ -380,7 +386,9 @@ export default function ClassificationCanvas() {
         <span className="hidden sm:inline">
           {totalMal.toLocaleString()} escalated
         </span>
-        <span className="ml-auto">illustrative motion · not live telemetry</span>
+        <span className="ml-auto">
+          illustrative motion · lane mix compressed · not live telemetry
+        </span>
       </div>
     </div>
   );

@@ -10,6 +10,12 @@ import ClassificationCanvas from "@/components/field/ClassificationCanvas";
    The cascade is demonstrated by the canvas, so the copy never describes it.
    =========================================================================== */
 
+/* `tells` are measured, not chosen. Each is the three features that carry
+   more one-vs-rest mutual information about that class than they do about the
+   rest — the spelling is the dataset's own, and the source of truth is
+   ml/artifacts/tells.json (`python -m kairo_ml.selection`). An earlier draft
+   listed invented names like `beacon_periodicity`, which sound like features
+   and are not in CICIDS2017 or in the model. */
 const CLASSES = [
   {
     id: "ddos",
@@ -17,10 +23,10 @@ const CLASSES = [
     gloss: "Volumetric flood",
     signature:
       "An enormous forward packet rate from many sources at once, almost no return traffic, flows that end without a teardown. The network is being drowned, not probed.",
-    tells: ["fwd_pkt_rate", "syn_ack_ratio", "src_cardinality"],
+    tells: ["Fwd Packet Length Mean", "Init_Win_bytes_forward", "Fwd IAT Std"],
     confusable: "DoS",
     confusableWhy:
-      "The same shape produced by one machine instead of thousands. Source cardinality is the only honest separator.",
+      "The same shape produced by one machine instead of thousands. Source addresses are dropped before training as leakage, so nothing here counts sources — the split is earned on packet size and window shape alone.",
   },
   {
     id: "dos",
@@ -28,18 +34,18 @@ const CLASSES = [
     gloss: "Single-origin exhaustion",
     signature:
       "One host holding connections open or hammering a single service until it stops answering. Exhaustion without the crowd.",
-    tells: ["active_time", "idle_time", "fwd_pkt_rate"],
+    tells: ["Idle Min", "Active Max", "Active Mean"],
     confusable: "DDoS",
     confusableWhy:
-      "Distinguished only by how many sources share the behaviour, which is why we never collapse the two into one label.",
+      "Not separable by source count, which the model never sees. What separates them is time: a DoS holds connections idle and open, and a flood has no idle time to hold.",
   },
   {
     id: "portscan",
     name: "Port Scan",
     gloss: "Reconnaissance sweep",
     signature:
-      "One source touching a wide spread of destination ports with tiny payloads and many connections never completed. Someone is drawing a map.",
-    tells: ["dst_port_variance", "init_win_bytes", "failed_conn_ratio"],
+      "Tiny forward segments arriving back to back against a wide spread of destination ports, with almost nothing coming back. Someone is drawing a map.",
+    tells: ["min_seg_size_forward", "Bwd Packet Length Min", "Fwd IAT Min"],
     confusable: "Normal",
     confusableWhy:
       "Vulnerability scanners and monitoring agents scan legitimately every day. Context decides, not the pattern alone.",
@@ -50,7 +56,7 @@ const CLASSES = [
     gloss: "Credential stuffing",
     signature:
       "Repeated authentication attempts against one service on a suspiciously regular cadence, with near-identical payload sizes. Patience rendered as traffic.",
-    tells: ["auth_failure_rate", "burst_regularity", "flow_iat_std"],
+    tells: ["Bwd IAT Std", "Destination Port", "Bwd IAT Total"],
     confusable: "Normal",
     confusableWhy:
       "A misconfigured client retrying a stale password looks almost exactly like an attacker being careful.",
@@ -60,11 +66,11 @@ const CLASSES = [
     name: "Botnet",
     gloss: "C2 beaconing",
     signature:
-      "Many internal hosts independently contacting the same external endpoint on a periodic interval with small, consistent payloads. The coordination is the signal, not the volume.",
-    tells: ["beacon_periodicity", "host_synchrony", "payload_entropy"],
+      "A small, regular conversation with an external endpoint on an unusual port, repeated on a schedule. The volume is never the signal — the interval is.",
+    tells: ["Bwd IAT Min", "Destination Port", "min_seg_size_forward"],
     confusable: "Normal",
     confusableWhy:
-      "Update checks, telemetry agents and licence servers all beacon on a schedule too.",
+      "Update checks, telemetry agents and licence servers all beacon on a schedule too. Measured, this is the hardest of the six: F1 0.9746, and almost every point it loses is a benign flow called a bot.",
   },
   {
     id: "webattack",
@@ -72,21 +78,28 @@ const CLASSES = [
     gloss: "Injection and traversal",
     signature:
       "HTTP flows with anomalous payload entropy and length distribution, concentrated against a few endpoints rather than spread across a site.",
-    tells: ["payload_entropy", "pkt_len_var", "dst_concentration"],
+    tells: ["Fwd IAT Min", "Flow IAT Min", "Fwd IAT Std"],
     confusable: "Normal",
     confusableWhy:
-      "A large legitimate upload shares much of the length profile. This is the hardest of the six.",
+      "A large legitimate upload shares much of the length profile, so what is left to separate them is timing. Second hardest of the six at F1 0.9907.",
   },
 ];
 
+/* Measured, not cited. Every row is our own run on CICIDS2017 — the same
+   253,240-flow sample, the same 30 selected features, the same held-out
+   50,648 flows — so the rows are comparable to each other. Regenerate with
+   `python -m kairo_ml.benchmark` and `python -m kairo_ml.cascade`; the
+   source of truth is ml/artifacts/benchmark.json. The bolded row is what
+   ships, and it is deliberately not the highest macro-F1 here — see below. */
 const MODELS = [
-  { name: "Decision Tree", note: "baseline", strong: false },
-  { name: "Random Forest", note: "bagging", strong: false },
-  { name: "Extra Trees", note: "bagging", strong: false },
-  { name: "SVM", note: "kernel / margin", strong: false },
-  { name: "XGBoost", note: "boosting", strong: false },
-  { name: "Weighted Soft Voting", note: "ensemble", strong: true },
-  { name: "Stacking Ensemble", note: "meta-learner", strong: true },
+  { name: "Decision Tree", note: "baseline", strong: false, v: [0.998, 0.9907, 0.9914, 0.99, 0.0003, 0.01] },
+  { name: "Random Forest", note: "bagging", strong: false, v: [0.9985, 0.9932, 0.9932, 0.9932, 0.0003, 0.0068] },
+  { name: "Extra Trees", note: "bagging", strong: false, v: [0.9982, 0.9919, 0.9922, 0.9916, 0.0003, 0.0084] },
+  { name: "SVM", note: "60k subsample", strong: false, v: [0.9718, 0.91, 0.8763, 0.975, 0.0047, 0.025] },
+  { name: "XGBoost", note: "boosting", strong: false, v: [0.9989, 0.9939, 0.9931, 0.9948, 0.0002, 0.0052] },
+  { name: "Weighted Soft Voting", note: "ensemble", strong: false, v: [0.9988, 0.9943, 0.9928, 0.9958, 0.0002, 0.0042] },
+  { name: "Stacking Ensemble", note: "best macro-F1", strong: false, v: [0.9989, 0.9948, 0.9919, 0.9979, 0.0002, 0.0021] },
+  { name: "Two-Stage Cascade", note: "deployed", strong: true, v: [0.9989, 0.9945, 0.9922, 0.9969, 0.0002, 0.0031] },
 ];
 
 const COLUMNS = ["Accuracy", "Macro-F1", "Precision", "Recall", "FPR", "FNR"];
@@ -137,10 +150,12 @@ export default function DetectionSection() {
               Two gates, not one verdict.
             </p>
             <p className="md:col-span-7 type-body-sm leading-relaxed max-w-[62ch]">
-              Every flow is first asked only whether it is malicious. Most never
-              travel past that line. Only what survives is given a name — and
-              splitting the problem this way is what stops a rare botnet from
-              being averaged away by an ocean of ordinary traffic.
+              Every flow is first asked only whether it is malicious, and only
+              what survives that gate is given a name — the naming ensemble
+              never runs on a flow the gate turned away. Four in five flows in
+              the capture are benign and stop at the first question; our test
+              split is deliberately balanced, so three quarters of it carries
+              on to the second.
             </p>
           </div>
         </Reveal>
@@ -327,12 +342,14 @@ export default function DetectionSection() {
                         {m.note}
                       </span>
                     </td>
-                    {COLUMNS.map((c) => (
+                    {m.v.map((n, i) => (
                       <td
-                        key={c}
-                        className="py-4 pl-4 text-right font-mono text-[15px] text-[#C8C8B4] select-none"
+                        key={COLUMNS[i]}
+                        className={`py-4 pl-4 text-right font-mono text-[15px] tabular-nums ${
+                          m.strong ? "text-[#171917]" : "text-[#62665F]"
+                        }`}
                       >
-                        —
+                        {n.toFixed(4)}
                       </td>
                     ))}
                   </tr>
@@ -345,13 +362,34 @@ export default function DetectionSection() {
         <Reveal delay={140}>
           <div className="mt-10 border-l-2 border-[#E11D48] pl-6 max-w-[58ch]">
             <p className="font-serif italic text-[20px] sm:text-[26px] text-[#171917] leading-snug">
-              Every cell is empty on purpose.
+              These are our numbers, on our split.
             </p>
             <p className="type-body-sm mt-3.5 leading-relaxed">
-              They get filled from our own experiments on CICIDS2017 and our own
-              generalization run against UNSW-NB15 — not copied from the
-              literature we built on. Until then, a number here would be the most
-              convincing thing on this page and the least true.
+              Eight models trained on the same 253,240 flows drawn from
+              CICIDS2017, scored on the same 50,648 held out from it, across
+              seven classes. Nothing here is copied from the literature we
+              built on, which is also why the SVM row is in it: it is the one
+              approach that clearly loses, and a table that only contains
+              winners is advertising.
+            </p>
+            <p className="type-body-sm mt-3 leading-relaxed">
+              The deployed row is not the best row. Flat stacking scores 0.0003
+              more macro-F1 than the cascade, and resampling the split a
+              thousand times puts that gap at{" "}
+              <span className="font-mono tabular-nums">
+                &minus;0.0003 [&minus;0.0013, +0.0006]
+              </span>{" "}
+              &mdash; straddling zero, because macro-F1 here averages in a
+              class with 389 test rows. Two models inside each other&rsquo;s
+              noise get chosen on architecture, and we take the one that can
+              refuse a flow before paying to name it.
+            </p>
+
+            <p className="type-body-sm mt-3 leading-relaxed">
+              Read the last two columns first. One dataset, one week, one
+              network — a score here means the model learned this capture.
+              Whether it learned <span className="italic">attacks</span> is a
+              different question, and section 07 answers it less kindly.
             </p>
           </div>
         </Reveal>

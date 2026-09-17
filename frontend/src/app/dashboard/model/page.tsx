@@ -28,6 +28,10 @@ export default function ModelPage() {
   const poolTotal = POOL.reduce((n, [, c]) => n + c, 0) + validated.length;
   const pct = Math.min(100, (poolTotal / RETRAIN_AT) * 100);
 
+  // The gate's own findings, not a caption about them.
+  const regressed = DEPLOYED.classes.find((a, i) => CANDIDATE.classes[i].f1 < a.f1)?.cls;
+  const weakest = CANDIDATE.classes.reduce((a, b) => (b.precision < a.precision ? b : a));
+
   const features = useMemo(() => featureImportance(), []);
   const maxWeight = features[0]?.weight ?? 1;
 
@@ -61,10 +65,12 @@ export default function ModelPage() {
           <Figure v={DEPLOYED.trainedAt} k="Trained" />
         </div>
 
-        {/* ensemble: weights as a rule, the same grammar as attack mix */}
+        {/* ensemble: weights as a rule, the same grammar as attack mix.
+            These are the naming stage's members — gate 01 is a single binary
+            XGBoost and has no weight to draw. */}
         <div className="px-7 pb-7">
           <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] text-[#8A8E86]">
-            Weighted soft voting
+            Gate 02 · stacked, weights fitted
           </span>
           <div className="mt-3 flex h-[6px] rounded-full overflow-hidden bg-white/[0.08]">
             {ENSEMBLE.map((m, i) => (
@@ -136,8 +142,9 @@ export default function ModelPage() {
           What it looks at
         </h2>
         <p className="text-[13.5px] text-[#62665F] mt-2 max-w-[54ch]">
-          Aggregate importance across classes. These are CICIDS2017 flow statistics — a verdict can
-          always be traced back to them.
+          Both stages averaged, over the 30 features selection kept. Bars are relative to the
+          top one, which takes 47% of the weight on its own — a verdict always traces back to
+          columns CICIDS2017 actually measures.
         </p>
         <div className="mt-5 flex flex-col divide-y divide-[#E8E8D8] border-y border-[#E8E8D8]">
           {features.map((f) => (
@@ -238,7 +245,7 @@ export default function ModelPage() {
                       style={{ color: d >= 0 ? "#059669" : "#E11D48" }}
                     >
                       {d >= 0 ? "+" : ""}
-                      {(d * 100).toFixed(1)}
+                      {(d * 100).toFixed(2)}
                     </td>
                   </tr>
                 );
@@ -249,9 +256,10 @@ export default function ModelPage() {
 
         <div className="mt-6 flex flex-col gap-2.5">
           <Gate ok label={`Macro F1 up ${((CANDIDATE.macroF1 - DEPLOYED.macroF1) * 100).toFixed(1)} points`} />
-          <Gate ok label="No class regressed on F1" />
-          {/* the one honest wart in the candidate, printed rather than hidden */}
-          <Gate label="Botnet precision down 0.3 points — smallest support in the set" />
+          <Gate ok={!regressed} label={regressed ? `${regressed} regressed on F1` : "No class regressed on F1"} />
+          {/* the wart, read off the two versions rather than written in — a
+              hand-typed caveat goes stale the first time either one changes */}
+          <Gate label={`${weakest.cls} is the floor at precision ${weakest.precision.toFixed(4)} — smallest support in the set`} />
         </div>
 
         <div className="mt-7 flex flex-wrap items-center gap-3">
@@ -289,7 +297,7 @@ function Cell({ v, strong }: { v: number; strong?: boolean }) {
         strong ? "font-serif text-[18px]" : "font-mono text-[11.5px] text-[#62665F]"
       }`}
     >
-      {v.toFixed(3)}
+      {v.toFixed(4)}
     </td>
   );
 }

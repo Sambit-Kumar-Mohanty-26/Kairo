@@ -1,0 +1,80 @@
+{
+  "trainedOn": "CICIDS2017 - 253,240 flows",
+  "testedOn": "UNSW-NB15 (CICFlowMeter re-extraction) - 447,915 flows",
+  "sharedFeatures": 29,
+  "modelFeatures": 30,
+  "droppedFeatures": [
+    "Destination Port"
+  ],
+  "homeMacroF1": 0.9927,
+  "families": {
+    "Normal": {
+      "precision": 0.9441,
+      "recall": 0.9999,
+      "f1": 0.9712,
+      "support": 358332
+    },
+    "DoS": {
+      "precision": 0.2,
+      "recall": 0.0002,
+      "f1": 0.0004,
+      "support": 4467
+    },
+    "Port Scan": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "support": 16735
+    }
+  },
+  "macroF1": 0.3239,
+  "binary": {
+    "flows": 447915,
+    "attacks": 89583,
+    "flagged": 58,
+    "calledNormal": 447857,
+    "caught": 13,
+    "accuracy": 0.7999,
+    "precision": 0.2241,
+    "recall": 0.0001,
+    "fpr": 0.0001,
+    "fnr": 0.9999
+  },
+  "unseenFamilies": {
+    "Analysis": {
+      "n": 385,
+      "caught": 0,
+      "flagged": 0.0
+    },
+    "Backdoor": {
+      "n": 452,
+      "caught": 0,
+      "flagged": 0.0
+    },
+    "Exploits": {
+      "n": 30951,
+      "caught": 0,
+      "flagged": 0.0
+    },
+    "Fuzzers": {
+      "n": 29613,
+      "caught": 12,
+      "flagged": 0.0004
+    },
+    "Generic": {
+      "n": 4632,
+      "caught": 0,
+      "flagged": 0.0
+    },
+    "Shellcode": {
+      "n": 2102,
+      "caught": 0,
+      "flagged": 0.0
+    },
+    "Worms": {
+      "n": 246,
+      "caught": 0,
+      "flagged": 0.0
+    }
+  }
+}

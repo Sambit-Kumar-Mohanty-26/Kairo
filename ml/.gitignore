@@ -1,0 +1,7 @@
+# Both corpora are downloads, not sources: raw/ is CICIDS2017's eight CSVs
+# and unsw/ is the UNSW-NB15 re-extraction. README.md says where from.
+data/
+artifacts/*.joblib
+__pycache__/
+*.pyc
+.venv/

@@ -1,0 +1,587 @@
+{
+  "trainedAt": "2026-09-17",
+  "dataset": "CICIDS2017 - 253,240 flows",
+  "testRows": 50648,
+  "featureCount": 30,
+  "featuresStarted": 69,
+  "features": [
+    "Packet Length Mean",
+    "Packet Length Variance",
+    "Init_Win_bytes_backward",
+    "Fwd Packet Length Max",
+    "Bwd Packet Length Max",
+    "Init_Win_bytes_forward",
+    "Fwd Packet Length Mean",
+    "Flow Duration",
+    "Destination Port",
+    "Bwd Packets/s",
+    "Fwd IAT Mean",
+    "Fwd Packets/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Fwd IAT Std",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "min_seg_size_forward",
+    "Bwd Packet Length Min",
+    "Bwd IAT Std",
+    "Fwd IAT Min",
+    "Bwd IAT Min",
+    "Idle Min",
+    "Min Packet Length",
+    "Flow IAT Min",
+    "Fwd Packet Length Min",
+    "Active Min",
+    "Active Mean",
+    "Active Max"
+  ],
+  "classes": [
+    "Normal",
+    "DDoS",
+    "DoS",
+    "Port Scan",
+    "Brute Force",
+    "Web Attack",
+    "Botnet"
+  ],
+  "best": "Stacking Ensemble",
+  "models": [
+    {
+      "accuracy": 0.998,
+      "macroF1": 0.9907,
+      "precision": 0.9914,
+      "recall": 0.99,
+      "fpr": 0.0003,
+      "fnr": 0.01,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9969,
+          "recall": 0.9965,
+          "f1": 0.9967,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9995,
+          "recall": 0.9996,
+          "f1": 0.9995,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9983,
+          "recall": 0.9989,
+          "f1": 0.9986,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9989,
+          "recall": 0.9991,
+          "f1": 0.999,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9989,
+          "recall": 0.9984,
+          "f1": 0.9986,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9882,
+          "recall": 0.979,
+          "f1": 0.9836,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9589,
+          "recall": 0.9589,
+          "f1": 0.9589,
+          "support": 389
+        }
+      ],
+      "name": "Decision Tree",
+      "seconds": 5.4,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9985,
+      "macroF1": 0.9932,
+      "precision": 0.9932,
+      "recall": 0.9932,
+      "fpr": 0.0003,
+      "fnr": 0.0068,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9981,
+          "recall": 0.9973,
+          "f1": 0.9977,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9998,
+          "recall": 0.9998,
+          "f1": 0.9998,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.998,
+          "recall": 0.9992,
+          "f1": 0.9986,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9993,
+          "recall": 0.9988,
+          "f1": 0.9991,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9995,
+          "recall": 0.9995,
+          "f1": 0.9995,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9906,
+          "recall": 0.9837,
+          "f1": 0.9871,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9668,
+          "recall": 0.9743,
+          "f1": 0.9706,
+          "support": 389
+        }
+      ],
+      "name": "Random Forest",
+      "seconds": 22.4,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9982,
+      "macroF1": 0.9919,
+      "precision": 0.9922,
+      "recall": 0.9916,
+      "fpr": 0.0003,
+      "fnr": 0.0084,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9975,
+          "recall": 0.9967,
+          "f1": 0.9971,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9997,
+          "recall": 0.9998,
+          "f1": 0.9997,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9978,
+          "recall": 0.9988,
+          "f1": 0.9983,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9992,
+          "recall": 0.9992,
+          "f1": 0.9992,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9995,
+          "recall": 0.9995,
+          "f1": 0.9995,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9929,
+          "recall": 0.9837,
+          "f1": 0.9883,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9591,
+          "recall": 0.964,
+          "f1": 0.9615,
+          "support": 389
+        }
+      ],
+      "name": "Extra Trees",
+      "seconds": 11.1,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9718,
+      "macroF1": 0.91,
+      "precision": 0.8763,
+      "recall": 0.975,
+      "fpr": 0.0047,
+      "fnr": 0.025,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9935,
+          "recall": 0.8982,
+          "f1": 0.9435,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9856,
+          "recall": 0.9988,
+          "f1": 0.9921,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9753,
+          "recall": 0.9897,
+          "f1": 0.9824,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9828,
+          "recall": 0.9978,
+          "f1": 0.9902,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9426,
+          "recall": 0.988,
+          "f1": 0.9648,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.795,
+          "recall": 0.958,
+          "f1": 0.8689,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.4591,
+          "recall": 0.9949,
+          "f1": 0.6282,
+          "support": 389
+        }
+      ],
+      "name": "SVM",
+      "seconds": 16.3,
+      "note": "60k subsample",
+      "trainRows": 60000
+    },
+    {
+      "accuracy": 0.9989,
+      "macroF1": 0.9939,
+      "precision": 0.9931,
+      "recall": 0.9948,
+      "fpr": 0.0002,
+      "fnr": 0.0052,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9988,
+          "recall": 0.9978,
+          "f1": 0.9983,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9997,
+          "recall": 0.9998,
+          "f1": 0.9998,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9989,
+          "recall": 0.9993,
+          "f1": 0.9991,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9993,
+          "recall": 0.9993,
+          "f1": 0.9993,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9995,
+          "recall": 0.9995,
+          "f1": 0.9995,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9884,
+          "recall": 0.9907,
+          "f1": 0.9895,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9669,
+          "recall": 0.9769,
+          "f1": 0.9719,
+          "support": 389
+        }
+      ],
+      "name": "XGBoost",
+      "seconds": 30.8,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9988,
+      "macroF1": 0.9943,
+      "precision": 0.9928,
+      "recall": 0.9958,
+      "fpr": 0.0002,
+      "fnr": 0.0042,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9989,
+          "recall": 0.9976,
+          "f1": 0.9982,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9998,
+          "recall": 0.9998,
+          "f1": 0.9998,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9987,
+          "recall": 0.9994,
+          "f1": 0.999,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9993,
+          "recall": 0.9992,
+          "f1": 0.9993,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 1.0,
+          "recall": 0.9995,
+          "f1": 0.9997,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9907,
+          "recall": 0.9883,
+          "f1": 0.9895,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9624,
+          "recall": 0.9871,
+          "f1": 0.9746,
+          "support": 389
+        }
+      ],
+      "name": "Weighted Soft Voting",
+      "seconds": 117.3,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9989,
+      "macroF1": 0.9948,
+      "precision": 0.9919,
+      "recall": 0.9979,
+      "fpr": 0.0002,
+      "fnr": 0.0021,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9992,
+          "recall": 0.9972,
+          "f1": 0.9982,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9998,
+          "recall": 0.9998,
+          "f1": 0.9998,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.9987,
+          "recall": 0.9993,
+          "f1": 0.999,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9994,
+          "recall": 0.9992,
+          "f1": 0.9993,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9995,
+          "recall": 0.9995,
+          "f1": 0.9995,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9861,
+          "recall": 0.9953,
+          "f1": 0.9907,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9603,
+          "recall": 0.9949,
+          "f1": 0.9773,
+          "support": 389
+        }
+      ],
+      "name": "Stacking Ensemble",
+      "seconds": 310.7,
+      "note": "",
+      "trainRows": 202592
+    },
+    {
+      "accuracy": 0.9989,
+      "macroF1": 0.9945,
+      "precision": 0.9922,
+      "recall": 0.9969,
+      "fpr": 0.0002,
+      "fnr": 0.0031,
+      "perClass": [
+        {
+          "cls": "Normal",
+          "precision": 0.9992,
+          "recall": 0.9977,
+          "f1": 0.9984,
+          "support": 12000
+        },
+        {
+          "cls": "DDoS",
+          "precision": 0.9997,
+          "recall": 0.9998,
+          "f1": 0.9997,
+          "support": 12000
+        },
+        {
+          "cls": "DoS",
+          "precision": 0.999,
+          "recall": 0.9994,
+          "f1": 0.9992,
+          "support": 12000
+        },
+        {
+          "cls": "Port Scan",
+          "precision": 0.9994,
+          "recall": 0.9992,
+          "f1": 0.9993,
+          "support": 12000
+        },
+        {
+          "cls": "Brute Force",
+          "precision": 0.9995,
+          "recall": 0.9995,
+          "f1": 0.9995,
+          "support": 1830
+        },
+        {
+          "cls": "Web Attack",
+          "precision": 0.9861,
+          "recall": 0.9953,
+          "f1": 0.9907,
+          "support": 429
+        },
+        {
+          "cls": "Botnet",
+          "precision": 0.9624,
+          "recall": 0.9871,
+          "f1": 0.9746,
+          "support": 389
+        }
+      ],
+      "name": "Two-Stage Cascade",
+      "seconds": 240.2,
+      "note": "gate + stacking namer",
+      "trainRows": 202592,
+      "namedShare": 0.7634,
+      "latencyUsPerFlow": 56.0,
+      "incumbentLatencyUsPerFlow": 78.8,
+      "vsIncumbent": {
+        "Two-Stage Cascade": {
+          "mean": 0.9945,
+          "ci95": [
+            0.9925,
+            0.9964
+          ]
+        },
+        "Stacking Ensemble": {
+          "mean": 0.9948,
+          "ci95": [
+            0.9929,
+            0.9967
+          ]
+        },
+        "diff": {
+          "of": [
+            "Two-Stage Cascade",
+            "Stacking Ensemble"
+          ],
+          "mean": -0.00034,
+          "ci95": [
+            -0.00131,
+            0.00057
+          ],
+          "aheadShare": 0.236
+        }
+      }
+    }
+  ],
+  "deployed": "Two-Stage Cascade"
+}

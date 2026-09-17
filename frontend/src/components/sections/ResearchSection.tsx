@@ -8,27 +8,107 @@ import Reveal from "@/components/common/Reveal";
    SECTION 07 — THE INTELLIGENCE BEHIND KAIRO
    Three movements, each one a picture of a method rather than a paragraph
    about it: features being culled, candidates being combined, a model being
-   moved to a dataset it has never seen. No measured number appears here,
-   for the same reason the table in section 03 is empty.
+   moved to a dataset it has never seen. Every number in here is from our own
+   run — including the one in movement 3 that says the model did not survive
+   the trip. Sources of truth: ml/artifacts/selection.json, benchmark.json,
+   generalization.json.
    =========================================================================== */
 
 /* ---- movement 1: feature selection ---------------------------------------
-   CICIDS2017 ships 78 flow features. Which ones survive is decided by our
-   own selection run, so the grid is explicitly an illustration: the shape of
-   the cull is real, the identity of the survivors is not claimed yet. */
-const CANDIDATES = 78;
-const kept = (i: number) => (i * 37) % 11 < 4;
+   CICIDS2017 ships 78 flow features. Nine go before selection even starts:
+   six identify the flow rather than describe it (IPs, ports, timestamps) and
+   three are dead on arrival. The remaining 69 are the real candidates, and
+   what follows is the real cull — regenerate with `python -m
+   kairo_ml.benchmark`, source of truth ml/artifacts/selection.json.
+
+   Stage 0 survives; 1 dies to the variance floor, 2 to correlation pruning,
+   3 to mutual information. Order is scrambled deterministically because the
+   dataset's column order carries no meaning and a sorted cull reads as a bar
+   chart instead of a thinning field. */
+const FEATURES: [string, number][] = [
+  ["Fwd URG Flags", 1],
+  ["Max Packet Length", 2],
+  ["Bwd Packet Length Min", 0],
+  ["Packet Length Std", 2],
+  ["Destination Port", 0],
+  ["Total Backward Packets", 1],
+  ["Idle Std", 3],
+  ["Fwd Packet Length Min", 0],
+  ["Avg Fwd Segment Size", 2],
+  ["Fwd IAT Std", 0],
+  ["Total Length of Bwd Packets", 1],
+  ["Bwd Packet Length Max", 0],
+  ["Flow Bytes/s", 1],
+  ["FIN Flag Count", 3],
+  ["Bwd IAT Min", 0],
+  ["Bwd Packet Length Mean", 2],
+  ["Fwd Packets/s", 0],
+  ["act_data_pkt_fwd", 1],
+  ["Packet Length Mean", 0],
+  ["Active Max", 0],
+  ["SYN Flag Count", 2],
+  ["min_seg_size_forward", 0],
+  ["Bwd IAT Max", 2],
+  ["Flow Duration", 0],
+  ["Subflow Fwd Bytes", 1],
+  ["Fwd PSH Flags", 3],
+  ["Flow IAT Min", 0],
+  ["Avg Bwd Segment Size", 2],
+  ["Flow IAT Std", 0],
+  ["Total Fwd Packets", 1],
+  ["Fwd Packet Length Max", 0],
+  ["Subflow Fwd Packets", 1],
+  ["URG Flag Count", 3],
+  ["Fwd IAT Min", 0],
+  ["Fwd IAT Total", 2],
+  ["Fwd IAT Mean", 0],
+  ["RST Flag Count", 1],
+  ["Active Std", 3],
+  ["Active Mean", 0],
+  ["Bwd Packet Length Std", 2],
+  ["Bwd IAT Mean", 0],
+  ["Fwd IAT Max", 2],
+  ["Fwd Packet Length Mean", 0],
+  ["Subflow Bwd Bytes", 1],
+  ["PSH Flag Count", 3],
+  ["Min Packet Length", 0],
+  ["Average Packet Size", 2],
+  ["Flow IAT Mean", 0],
+  ["CWE Flag Count", 1],
+  ["Init_Win_bytes_backward", 0],
+  ["Subflow Bwd Packets", 1],
+  ["Flow IAT Max", 2],
+  ["Bwd IAT Std", 0],
+  ["Idle Max", 2],
+  ["Bwd Packets/s", 0],
+  ["Bwd Header Length", 1],
+  ["ACK Flag Count", 3],
+  ["Active Min", 0],
+  ["Fwd Packet Length Std", 2],
+  ["Bwd IAT Total", 0],
+  ["ECE Flag Count", 1],
+  ["Init_Win_bytes_forward", 0],
+  ["Total Length of Fwd Packets", 1],
+  ["Down/Up Ratio", 3],
+  ["Idle Min", 0],
+  ["Idle Mean", 2],
+  ["Flow Packets/s", 0],
+  ["Fwd Header Length", 1],
+  ["Packet Length Variance", 0],
+];
+
+const SHIPPED = 78;
+const KEPT_COUNT = FEATURES.filter(([, g]) => g === 0).length;
 const barHeight = (i: number) => 22 + ((i * 53) % 46);
-const KEPT_COUNT = Array.from({ length: CANDIDATES }, (_, i) => kept(i)).filter(
-  Boolean
-).length;
 
 const CRITERIA = [
   ["Variance floor", "a feature that barely moves cannot separate anything"],
   ["Correlation pruning", "two features saying the same thing earn one seat"],
   ["Mutual information", "how much a feature tells us about the label"],
-  ["Model-based importance", "what the trees actually split on"],
 ];
+/* Three stages, not four. An earlier draft listed model-based importance as a
+   fourth criterion; the pipeline does not use it to select, only to explain a
+   single verdict after the fact, so it does not belong in this list. */
 
 /* ---- movement 2: ensemble learning --------------------------------------- */
 const CANDIDATE_MODELS = [
@@ -44,13 +124,17 @@ const PLATES = [
   {
     tag: "Trained on",
     name: "CICIDS2017",
-    lines: ["labelled flow records", "six attack families", "our feature pipeline"],
+    lines: ["253,240 labelled flows", "six attack families", "30 features of 78 shipped"],
     accent: "#6EE7B7",
   },
   {
     tag: "Tested on",
     name: "UNSW-NB15",
-    lines: ["different capture, different year", "different network entirely", "never seen in training"],
+    lines: [
+      "447,915 flows, re-extracted",
+      "ten families, three we share",
+      "different network, 2015",
+    ],
     accent: "#FBBF24",
   },
 ];
@@ -130,12 +214,13 @@ export default function ResearchSection() {
         {/* the cull: 78 candidates, a minority left standing */}
         <div ref={gridRef} className="mt-14">
           <div className="flex items-end gap-[3px] sm:gap-[5px] h-[72px]">
-            {Array.from({ length: CANDIDATES }, (_, i) => {
-              const survives = kept(i);
+            {FEATURES.map(([name, stage], i) => {
+              const survives = stage === 0;
               const on = !culled || survives;
               return (
                 <div
-                  key={i}
+                  key={name}
+                  title={survives ? name : `${name} — cut at stage ${stage}`}
                   className="flex-1 rounded-t-[1px]"
                   style={{
                     height: culled && !survives ? 5 : barHeight(i),
@@ -155,14 +240,14 @@ export default function ResearchSection() {
 
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 mt-6 pt-5 border-t border-[#DCDDCB]">
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#8A8E86]">
-              {CANDIDATES} candidate features
+              {SHIPPED} shipped · {FEATURES.length} candidates
             </span>
             <span className="text-[#B0B4AC]">→</span>
             <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[#171917] font-bold">
               {KEPT_COUNT} carried forward
             </span>
             <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.14em] text-[#B0B4AC]">
-              illustration · the surviving set is what our selection run decides
+              measured · 69 → 53 → 38 → 30 · hover a bar for the feature
             </span>
           </div>
         </div>
@@ -203,7 +288,7 @@ export default function ResearchSection() {
               Feature selection · 02
             </span>
             <span className="ml-auto font-mono text-[9px] uppercase tracking-[0.14em] text-white/30 border border-white/12 rounded-full px-2.5 py-1">
-              weights unfitted · mechanism shown, not results
+              cascade deployed · macro-F1 0.9945 · section 03 has the table
             </span>
           </div>
 
@@ -212,12 +297,15 @@ export default function ResearchSection() {
               className="font-serif tracking-tight leading-[0.98] max-w-[20ch]"
               style={{ fontSize: "clamp(30px, 4.2vw, 54px)" }}
             >
-              No single model is good at all six.
+              Every model looks identical until the rare classes.
             </h3>
             <p className="text-[14.5px] leading-relaxed text-white/45 mt-6 max-w-[52ch]">
-              Trees catch volumetric floods and miss the careful ones. Margins
-              find the rare classes and cost more to run. So we do not pick a
-              winner — we let them disagree and weight the disagreement.
+              Five of the seven are solved by anything with a tree in it —
+              nothing scores below 0.9986 on DDoS. The ensemble earns its keep
+              on the two rarest. Botnet is 389 flows in our test set: a lone
+              decision tree gets F1 0.9589 there, stacking gets 0.9773. The
+              SVM shows the other direction, collapsing to 0.6282 on that same
+              class, which is why we do not pick a winner by reputation.
             </p>
 
             {/* five candidates, one verdict */}
@@ -264,9 +352,11 @@ export default function ResearchSection() {
                 <div className="font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
                   Weighted soft voting
                 </div>
-                {/* Five opinions arriving at one. Deliberately carries no
-                    figures — the pulse is the mechanism, and the weights are
-                    not ours to state yet. */}
+                {/* Five opinions arriving at one. The pulse is the mechanism;
+                    the weights beneath it are the hand-set 0.40/0.35/0.25 from
+                    WEIGHTS in ml/src/kairo_ml/train.py, which is exactly why
+                    the stacking alternative that learns them is the one that
+                    ended up inside the deployed cascade. */}
                 <svg
                   viewBox="0 0 600 200"
                   className="w-full h-auto mt-4"
@@ -329,8 +419,9 @@ export default function ResearchSection() {
                   />
                 </svg>
                 <p className="font-mono text-[9.5px] text-white/25 mt-3">
-                  each candidate returns a probability per class · the weights
-                  are fitted after per-class evaluation, not chosen by hand
+                  each candidate returns a probability per class · these weights
+                  are ours by hand — 0.40 / 0.35 / 0.25 — and that is the point
+                  of the alternative below
                 </p>
 
                 <div className="mt-10 font-mono text-[9px] font-bold uppercase tracking-[0.2em] text-white/30">
@@ -338,13 +429,17 @@ export default function ResearchSection() {
                 </div>
                 <div className="mt-4 p-5 rounded-xl border border-white/10 bg-white/[0.03]">
                   <div className="font-sans text-[15px] text-white/80">
-                    A meta-learner reads the five outputs as its input
+                    A meta-learner reads the tree models&rsquo; outputs as its
+                    input
                   </div>
                   <p className="text-[13.5px] leading-relaxed text-white/40 mt-2.5">
-                    It can learn that XGBoost is worth listening to on botnets
-                    and the SVM on web attacks. It can also learn the training
-                    set by heart, which is why both are on the bench and only
-                    the honest evaluation picks one.
+                    Three of them — random forest, extra trees, XGBoost — with
+                    a logistic regression over the top, fitted on three-fold
+                    out-of-fold predictions so it cannot simply memorise its
+                    own members. It beat the hand-weighted vote by 0.0005
+                    macro-F1, all of it on the two rare classes. A thin margin,
+                    honestly earned — and this is the stage that names a flow
+                    once the gate has decided it is worth naming.
                   </p>
                 </div>
 
@@ -428,8 +523,17 @@ export default function ResearchSection() {
                 What we are looking for
               </div>
               <p className="font-serif italic text-[20px] sm:text-[26px] text-[#171917] leading-snug mt-4">
-                How much accuracy we lose when the network changes — and whether
-                the classes we lose it on are the ones that matter.
+                How much we lose when the network changes. The answer was
+                everything, which is why the honest version of this section is
+                the one worth reading.
+              </p>
+              <p className="type-body-sm leading-relaxed mt-5 max-w-[56ch]">
+                Trained on one week of one university network in 2017, tested
+                on a different network captured in 2015 by different people,
+                with no retraining and no tuning. 29 of the 30 features line up
+                between the two extractions; destination port does not exist in
+                the second, so the model was refit on the 29 both share and
+                measured at home on those before it travelled.
               </p>
             </div>
             <div className="lg:col-span-5">
@@ -437,15 +541,22 @@ export default function ResearchSection() {
                 <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A8E86]">
                   Macro-F1 delta
                 </span>
-                <span className="font-mono text-[28px] text-[#C8C8B4] select-none leading-none">
-                  —
+                <span className="font-mono text-[28px] text-[#E11D48] leading-none tabular-nums">
+                  −0.6688
                 </span>
               </div>
               <p className="type-body-sm leading-relaxed mt-4">
-                Empty for the same reason as the table in section 03. The
-                generalization run is the experiment this project stands on;
-                borrowing someone else&rsquo;s figure would defeat the point of
-                doing it.
+                0.9927 at home, <span className="text-[#171917]">0.3239</span>{" "}
+                on UNSW-NB15. The model calls 447,857 of 447,915 foreign flows
+                normal, including every one of the 30,951 exploits. It did not
+                transfer, and we are not going to bury that: it is the most
+                useful thing we measured.
+              </p>
+              <p className="type-body-sm leading-relaxed mt-3">
+                Its accuracy on that run is 0.7999 — a respectable-looking
+                number for a model that caught 13 of 89,583 attacks. That is
+                the number section 03 warned you about, and we walked into it
+                ourselves.
               </p>
             </div>
           </div>

@@ -1,15 +1,30 @@
 /* ===========================================================================
    The console's data, before the console has a producer.
 
-   ml/ does not exist yet, so nothing here is a model verdict. Every number is
-   a fixture and the UI says so — the pipeline rail prints FIXTURE on every
-   run. §7 is explicit that Test Mode must run the real model, so the moment
-   ml/ is live this module is replaced by fetches and the rail stops lying.
+   Traffic, detections and offices here are fixtures — the pipeline rail
+   prints FIXTURE on every run, and §7 is explicit that Test Mode must run the
+   real model, so this module gets replaced by fetches once the service is
+   wired. What is NOT a fixture any more: DEPLOYED, ENSEMBLE and every risk
+   below are read off the trained artifact (ml/artifacts/metrics.json), and
+   each PROFILE's risk is exactly what risk_of() in ml/src/kairo_ml/config.py
+   returns for that class at that confidence. CANDIDATE is the one version
+   that has not been trained, and it says so.
 
    The opening figures are the notes' own (§8): 125,432 / 42 / 7 / 78.
    =========================================================================== */
 
-export const SCENARIOS = ["Normal", "DDoS", "Port Scan", "Brute Force", "Botnet"] as const;
+/* Seven, in the order CLASSES uses in ml/src/kairo_ml/config.py. DoS is its
+   own class and never folded into DDoS — the landing page makes a point of
+   it, so the console cannot quietly ship five. */
+export const SCENARIOS = [
+  "Normal",
+  "DDoS",
+  "DoS",
+  "Port Scan",
+  "Brute Force",
+  "Web Attack",
+  "Botnet",
+] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 export type Severity = "normal" | "warning" | "critical";
 export type Status = "new" | "acknowledged" | "investigating" | "resolved" | "false-positive";
@@ -54,12 +69,12 @@ export const PROFILES: Record<
     confidence: 0.981,
     risk: 12,
     severity: "normal",
-    evidence: "handshake symmetry 94% · payload entropy nominal",
+    evidence: "packet length mean nominal · idle time nominal",
     features: [
       { name: "Flow Duration", weight: 0.22 },
-      { name: "Average Packet Size", weight: 0.19 },
+      { name: "Packet Length Mean", weight: 0.19 },
       { name: "Flow IAT Std", weight: 0.15 },
-      { name: "Total Backward Packets", weight: 0.12 },
+      { name: "Bwd Packets/s", weight: 0.12 },
       { name: "Init_Win_bytes_forward", weight: 0.09 },
     ],
   },
@@ -67,52 +82,78 @@ export const PROFILES: Record<
     confidence: 0.984,
     risk: 91,
     severity: "critical",
-    evidence: "fwd packet rate 41k/s · 2,180 distinct sources",
+    evidence: "fwd packet rate 41k/s · fwd packet length mean 66B",
     features: [
-      { name: "Flow Bytes/s", weight: 0.27 },
+      { name: "Fwd Packet Length Mean", weight: 0.27 },
       { name: "Fwd Packets/s", weight: 0.23 },
       { name: "Flow IAT Mean", weight: 0.18 },
-      { name: "Total Fwd Packets", weight: 0.14 },
-      { name: "Packet Length Std", weight: 0.09 },
+      { name: "Init_Win_bytes_forward", weight: 0.14 },
+      { name: "Packet Length Variance", weight: 0.09 },
+    ],
+  },
+  DoS: {
+    confidence: 0.972,
+    risk: 84,
+    severity: "warning",
+    evidence: "idle min 4.2s on an open connection · active max 61s",
+    features: [
+      { name: "Idle Min", weight: 0.28 },
+      { name: "Active Max", weight: 0.22 },
+      { name: "Flow Duration", weight: 0.18 },
+      { name: "Fwd Packets/s", weight: 0.13 },
+      { name: "Packet Length Mean", weight: 0.09 },
     ],
   },
   "Port Scan": {
     confidence: 0.967,
-    risk: 78,
+    risk: 77,
     severity: "warning",
-    evidence: "1,024 destination ports · 96% connections unfinished",
+    evidence: "1,024 destination ports · min fwd segment 20B",
     features: [
       { name: "Destination Port", weight: 0.31 },
       { name: "Init_Win_bytes_forward", weight: 0.22 },
       { name: "Flow Duration", weight: 0.17 },
-      { name: "SYN Flag Count", weight: 0.12 },
-      { name: "Total Length of Fwd Packets", weight: 0.1 },
+      { name: "min_seg_size_forward", weight: 0.12 },
+      { name: "Bwd Packet Length Min", weight: 0.1 },
     ],
   },
   "Brute Force": {
     confidence: 0.914,
-    risk: 84,
-    severity: "critical",
-    evidence: "auth failures 312/min · inter-arrival variance near zero",
+    risk: 80,
+    severity: "warning",
+    evidence: "bwd inter-arrival variance near zero · 312 attempts/min",
     features: [
       { name: "Flow Duration", weight: 0.26 },
       { name: "Fwd IAT Std", weight: 0.21 },
-      { name: "Total Backward Packets", weight: 0.17 },
+      { name: "Bwd IAT Std", weight: 0.17 },
       { name: "Init_Win_bytes_forward", weight: 0.13 },
-      { name: "Average Packet Size", weight: 0.11 },
+      { name: "Bwd IAT Total", weight: 0.11 },
+    ],
+  },
+  "Web Attack": {
+    confidence: 0.958,
+    risk: 86,
+    severity: "warning",
+    evidence: "fwd inter-arrival min 0.4ms · flow IAT min flat",
+    features: [
+      { name: "Fwd IAT Min", weight: 0.26 },
+      { name: "Flow IAT Min", weight: 0.21 },
+      { name: "Fwd IAT Std", weight: 0.18 },
+      { name: "Init_Win_bytes_backward", weight: 0.14 },
+      { name: "Bwd Packets/s", weight: 0.1 },
     ],
   },
   Botnet: {
-    confidence: 0.941,
+    confidence: 0.978,
     risk: 89,
     severity: "critical",
-    evidence: "17 hosts beaconing on a 60s period to one endpoint",
+    evidence: "60s beacon interval to port 8080 · 2.3kB per exchange",
     features: [
       { name: "Flow IAT Mean", weight: 0.29 },
-      { name: "Bwd Packet Length Mean", weight: 0.2 },
-      { name: "Subflow Fwd Bytes", weight: 0.16 },
+      { name: "Bwd IAT Min", weight: 0.2 },
+      { name: "Destination Port", weight: 0.16 },
       { name: "Flow Duration", weight: 0.14 },
-      { name: "act_data_pkt_fwd", weight: 0.1 },
+      { name: "min_seg_size_forward", weight: 0.1 },
     ],
   },
 };
@@ -120,8 +161,10 @@ export const PROFILES: Record<
 export const RESPONSES: Record<Scenario, string[]> = {
   Normal: [],
   DDoS: ["Block source", "Rate-limit edge", "Isolate target"],
+  DoS: ["Block source", "Drop half-open connections", "Isolate target"],
   "Port Scan": ["Block source", "Investigate", "Tighten firewall rule"],
   "Brute Force": ["Block source", "Force credential reset", "Investigate"],
+  "Web Attack": ["Block source", "Patch endpoint", "Investigate"],
   Botnet: ["Isolate hosts", "Block C2 endpoint", "Investigate"],
 };
 
@@ -169,6 +212,11 @@ export function seedDetections(now: number): Detection[] {
       const office = OFFICES[Math.floor(rand() * OFFICES.length)];
       const sensor = office.sensors[Math.floor(rand() * office.sensors.length)];
       const crit = criticalSlots.has(i);
+      // Fixture noise, NOT risk_of(): the real formula is ceiling x confidence
+      // and every profile below obeys it, but applied to 42 attack rows it puts
+      // almost all of them over CRITICAL_AT and the log reads as one flat wall
+      // of red. The seeded log spreads severity instead and keeps the notes'
+      // 7 criticals. Test Mode and the detail pane use the formula.
       const risk = crit
         ? CRITICAL_AT + Math.floor(rand() * 9)
         : 42 + Math.floor(rand() * (CRITICAL_AT - 43));
@@ -238,41 +286,56 @@ export type Version = {
   classes: ClassMetric[];
 };
 
-/** Weighted soft voting: each member votes a probability, weights decide. */
+/** The naming stage's three base models, weighted the way the deployed
+    artifact actually weights them: mean |coefficient| of the stacked logistic
+    meta-learner over each member's block, normalised. Not the hand-set
+    40/35/25 the voting alternative used — the point of stacking is that it
+    fits these, and fitted, they come out nearly even. */
 export const ENSEMBLE: { name: string; weight: number; note: string }[] = [
-  { name: "Random Forest", weight: 0.4, note: "300 trees · gini" },
-  { name: "XGBoost", weight: 0.35, note: "400 rounds · depth 8" },
-  { name: "Extra Trees", weight: 0.25, note: "300 trees · entropy" },
+  { name: "Random Forest", weight: 0.3231, note: "300 trees · gini" },
+  { name: "Extra Trees", weight: 0.3594, note: "300 trees · entropy" },
+  { name: "XGBoost", weight: 0.3175, note: "400 rounds · depth 8" },
 ];
 
+/** ml/artifacts/metrics.json, verbatim. Gate 01 (XGBoost, binary) then
+    gate 02 (stacking over the three members above). It is not the highest
+    macro-F1 in section 03's table and that is deliberate — flat stacking
+    scores 0.0003 more, inside the noise of a 389-row class. */
 export const DEPLOYED: Version = {
-  tag: "v1.0",
-  trainedAt: "2026-08-02",
-  dataset: "CICIDS2017 · 2.27M flows",
-  accuracy: 0.992,
-  macroF1: 0.974,
+  tag: "v1.0-cascade",
+  trainedAt: "2026-09-17",
+  dataset: "CICIDS2017 · 253,240 flows",
+  accuracy: 0.9989,
+  macroF1: 0.9945,
   classes: [
-    { cls: "Normal", precision: 0.996, recall: 0.998, f1: 0.997, support: 452_318 },
-    { cls: "DDoS", precision: 0.989, recall: 0.994, f1: 0.991, support: 128_027 },
-    { cls: "Port Scan", precision: 0.981, recall: 0.972, f1: 0.976, support: 90_694 },
-    { cls: "Brute Force", precision: 0.947, recall: 0.921, f1: 0.934, support: 9_150 },
-    { cls: "Botnet", precision: 0.932, recall: 0.884, f1: 0.907, support: 1_966 },
+    { cls: "Normal", precision: 0.9992, recall: 0.9977, f1: 0.9984, support: 12_000 },
+    { cls: "DDoS", precision: 0.9997, recall: 0.9998, f1: 0.9997, support: 12_000 },
+    { cls: "DoS", precision: 0.999, recall: 0.9994, f1: 0.9992, support: 12_000 },
+    { cls: "Port Scan", precision: 0.9994, recall: 0.9992, f1: 0.9993, support: 12_000 },
+    { cls: "Brute Force", precision: 0.9995, recall: 0.9995, f1: 0.9995, support: 1_830 },
+    { cls: "Web Attack", precision: 0.9861, recall: 0.9953, f1: 0.9907, support: 429 },
+    { cls: "Botnet", precision: 0.9603, recall: 0.9949, f1: 0.9746, support: 389 },
   ],
 };
 
-/** Trained on the pool below. It only ships if it beats v1 on every class. */
+/** Not trained. This is the shape the Model tab's gate compares against
+    once the pool below clears RETRAIN_AT and a run actually happens; the
+    figures are a target to beat, not a measurement, which is why the tag says
+    so and the dataset line names flows we have not collected yet. */
 export const CANDIDATE: Version = {
-  tag: "v2.0-rc1",
-  trainedAt: "2026-09-16",
-  dataset: "CICIDS2017 + 19,856 validated flows",
-  accuracy: 0.994,
-  macroF1: 0.981,
+  tag: "v1.1-rc1 (not run)",
+  trainedAt: "—",
+  dataset: "CICIDS2017 + console-validated flows · pending",
+  accuracy: 0.999,
+  macroF1: 0.9955,
   classes: [
-    { cls: "Normal", precision: 0.997, recall: 0.998, f1: 0.998, support: 467_738 },
-    { cls: "DDoS", precision: 0.993, recall: 0.996, f1: 0.994, support: 130_368 },
-    { cls: "Port Scan", precision: 0.986, recall: 0.979, f1: 0.982, support: 91_897 },
-    { cls: "Brute Force", precision: 0.958, recall: 0.944, f1: 0.951, support: 10_042 },
-    { cls: "Botnet", precision: 0.929, recall: 0.901, f1: 0.915, support: 1_966 },
+    { cls: "Normal", precision: 0.9993, recall: 0.998, f1: 0.9986, support: 12_000 },
+    { cls: "DDoS", precision: 0.9998, recall: 0.9998, f1: 0.9998, support: 12_000 },
+    { cls: "DoS", precision: 0.9992, recall: 0.9995, f1: 0.9993, support: 12_000 },
+    { cls: "Port Scan", precision: 0.9995, recall: 0.9994, f1: 0.9994, support: 12_000 },
+    { cls: "Brute Force", precision: 0.9996, recall: 0.9996, f1: 0.9996, support: 1_830 },
+    { cls: "Web Attack", precision: 0.9885, recall: 0.9953, f1: 0.9919, support: 429 },
+    { cls: "Botnet", precision: 0.9702, recall: 0.9949, f1: 0.9824, support: 389 },
   ],
 };
 
@@ -282,22 +345,31 @@ export const POOL: [string, number][] = [
   ["DDoS", 2_341],
   ["Port Scan", 1_203],
   ["Brute Force", 892],
+  ["DoS", 604],
+  ["Web Attack", 118],
 ];
 
 /** A retrain is worth running once this many validated flows have collected. */
-export const RETRAIN_AT = 20_000;
+export const RETRAIN_AT = 25_000;
 
-/** Aggregate importance across the classes the model separates. */
-export function featureImportance(): Feature[] {
-  const t = new Map<string, number>();
-  for (const p of Object.values(PROFILES))
-    for (const f of p.features) t.set(f.name, (t.get(f.name) ?? 0) + f.weight);
-  const total = [...t.values()].reduce((a, b) => a + b, 0);
-  return [...t]
-    .map(([name, w]) => ({ name, weight: w / total }))
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 8);
-}
+/** The deployed cascade's own importances, both stages averaged and
+    renormalised over all 30 features, from ml/artifacts/model.joblib. Summing
+    the fixture profiles instead used to surface columns that selection had
+    dropped. `Bwd Packet Length Min` really is 47% of it: it is the gate's
+    first split, and a flow with nothing coming back is most of what the gate
+    needs to know. */
+const IMPORTANCE: Feature[] = [
+  { name: "Bwd Packet Length Min", weight: 0.471 },
+  { name: "Init_Win_bytes_backward", weight: 0.076 },
+  { name: "min_seg_size_forward", weight: 0.061 },
+  { name: "Destination Port", weight: 0.049 },
+  { name: "Fwd Packet Length Max", weight: 0.046 },
+  { name: "Packet Length Mean", weight: 0.035 },
+  { name: "Fwd Packet Length Min", weight: 0.025 },
+  { name: "Packet Length Variance", weight: 0.023 },
+];
+
+export const featureImportance = (): Feature[] => IMPORTANCE;
 
 /** Detections inside a window, newest first. */
 export const since = (d: Detection[], ms: number) => d.filter((x) => Date.now() - x.at <= ms);
