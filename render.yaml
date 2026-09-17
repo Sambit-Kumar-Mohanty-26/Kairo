@@ -57,6 +57,10 @@ services:
         value: 3.13.1
       - key: KAIRO_MODEL_URL
         sync: false
+      # Set only if the artifact is in a private repo or bucket; sent as a
+      # bearer token on the one GET the build makes.
+      - key: KAIRO_MODEL_TOKEN
+        sync: false
       # Only kairo-api should reach this service, never a browser, so this is
       # the API's own origin *with* the scheme — fromService gives a bare
       # hostname, which would never match an Origin header. Server-to-server
