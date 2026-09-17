@@ -34,6 +34,11 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 
+  // The Python inference service. Unset means /ml answers 503 rather than
+  // guessing a localhost port — the API's own default port is 8000 too, so a
+  // wrong guess would have it calling itself. Locally: :8001.
+  mlUrl: (process.env.ML_URL ?? "").replace(/\/$/, ""),
+
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "Kairo <onboarding@resend.dev>",
 };

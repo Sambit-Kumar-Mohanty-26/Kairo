@@ -33,13 +33,34 @@ services:
       - key: EMAIL_FROM # must be a domain verified in Resend
         sync: false
 
-  # When the model exists, the ML service is added here — same repo, own folder,
-  # own runtime, deployed and scaled independently:
-  #
-  # - type: web
-  #   name: kairo-ml
-  #   runtime: python
-  #   rootDir: ml
-  #   buildCommand: pip install -r requirements.txt
-  #   startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-  #   healthCheckPath: /health
+  - type: web
+    name: kairo-ml
+    runtime: python
+    rootDir: ml
+    # Loading the cascade costs 226 MB resident (43 MB pickle: two XGBoost
+    # models plus 600 trees) and 4s, before uvicorn. Free's 512 MB fits one
+    # worker with no headroom, and free spins down — the first request after
+    # idle pays the wake *and* the unpickle. starter is the honest floor.
+    plan: starter
+    # The artifact is gitignored, so the build downloads it. Set
+    # KAIRO_MODEL_URL to a public model.joblib; the step fails the build if it
+    # cannot get one, rather than shipping a service that 503s.
+    buildCommand: pip install -r requirements.txt && python -m kairo_ml.fetch_model
+    startCommand: uvicorn kairo_ml.service:app --host 0.0.0.0 --port $PORT
+    # /health reports whether a model is loadable, not merely that Python is
+    # up, so a modelless instance never takes traffic.
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONPATH # src layout: kairo_ml is not importable without it
+        value: src
+      - key: PYTHON_VERSION # numpy 2.x and xgboost 3.x wheels; trained on this
+        value: 3.13.1
+      - key: KAIRO_MODEL_URL
+        sync: false
+      # Only kairo-api should reach this service, never a browser, so this is
+      # the API's own origin *with* the scheme — fromService gives a bare
+      # hostname, which would never match an Origin header. Server-to-server
+      # calls send no Origin at all, so this is a browser lock, not the
+      # authorisation: see the note on /ml in api/src/routes/ml.ts.
+      - key: ALLOWED_ORIGINS
+        sync: false

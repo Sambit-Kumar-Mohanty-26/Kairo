@@ -42,6 +42,7 @@ into U+FFFD. `canon_label` in `config.py` normalises all of them, which is why
 | `python -m kairo_ml.selection` | `tells.json` | Per-class one-vs-rest MI — section 03's chips |
 | `python -m kairo_ml.generalize` | `generalization.json` | UNSW-NB15, no retraining — section 07 |
 | `python -m kairo_ml.train [--synthetic]` | `model.joblib`, `metrics.json` | The voting ensemble on its own; `--synthetic` runs in a minute |
+| `python -m kairo_ml.fetch_model` | `model.joblib` | Pulls a trained artifact from `KAIRO_MODEL_URL` — the deploy's build step |
 | `python tests/test_pipeline.py` | — | Eight checks over the whole path |
 
 Order matters once: `cascade` reads `benchmark.json` for the feature list and
@@ -63,6 +64,31 @@ straddling zero, because macro-F1 averages a class with 389 test rows. Two
 models inside each other's noise get chosen on architecture, and the cascade
 gates every flow with one cheap binary model and only pays for the naming
 ensemble on what passes. The landing page prints both rows and the interval.
+
+## Deploy
+
+`service.py` is the only thing that runs in production here: FastAPI, three
+routes, no database and no auth of its own — it sits behind the Express API,
+which has both.
+
+```sh
+PYTHONPATH=src uvicorn kairo_ml.service:app --port 8001   # 8000 is the API's
+```
+
+`GET /health` loads the model and says whether it is loadable, so a modelless
+instance never passes Render's health check. `GET /model` is metrics.json.
+`POST /predict` takes `{"flows": [...]}`, max 500, and returns one detection
+per flow in the console's own shape.
+
+The artifact is gitignored, so the deploy fetches it:
+`python -m kairo_ml.fetch_model` downloads `KAIRO_MODEL_URL` to
+`artifacts/model.joblib` and exits non-zero if it cannot, which fails the build
+rather than shipping a service that 503s. Any plain URL works — a public
+Hugging Face model repo, an S3 object, a release asset.
+
+Sizing, measured on this artifact: 43 MB pickle, **226 MB resident** once
+loaded, 4s to unpickle, ~5ms per flow warm. One uvicorn worker per instance;
+two do not fit in 512 MB.
 
 ## Contracts that will break quietly
 

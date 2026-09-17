@@ -4,6 +4,7 @@ import express from "express";
 import { config, googleEnabled } from "./config.js";
 import { errorHandler } from "./middleware.js";
 import { authRouter } from "./routes/auth.js";
+import { mlRouter } from "./routes/ml.js";
 import { oauthRouter } from "./routes/oauth.js";
 
 const app = express();
@@ -25,11 +26,12 @@ app.use(
 );
 
 app.get("/health", (_req, res) => {
-  res.json({ status: "ok", google: googleEnabled });
+  res.json({ status: "ok", google: googleEnabled, model: Boolean(config.mlUrl) });
 });
 
 app.use("/auth", authRouter);
 app.use("/auth", oauthRouter);
+app.use("/ml", mlRouter);
 
 app.use(errorHandler);
 
