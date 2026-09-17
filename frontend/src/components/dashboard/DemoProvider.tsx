@@ -8,6 +8,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useRouter } from "next/navigation";
 import {
   OFFICES,
   SEED_RISK,
@@ -20,7 +21,7 @@ import {
   type Scenario,
   type Status,
 } from "@/lib/demo";
-import { getAccessToken } from "@/lib/auth";
+import { me } from "@/lib/auth";
 import { setDetectionStatus, snapshot } from "@/lib/live";
 
 type Mode = "test" | "live";
@@ -118,6 +119,7 @@ export function useConsole() {
 }
 
 export default function DemoProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   // Timestamps are relative to now, so the tree renders client-side only
   // rather than hydrating against a server clock that has already moved on.
   const [ready, setReady] = useState(false);
@@ -135,25 +137,42 @@ export default function DemoProvider({ children }: { children: React.ReactNode }
   // Bumped to force a poll outside the interval.
   const [pollNonce, setPollNonce] = useState(0);
 
-  // Survives a reload mid-demo. sessionStorage, not local — a new tab should
-  // start from the clean seed.
+  // The guard. /dashboard has no server-side session check — Next serves the
+  // shell either way — so it is this call or nothing stands between a logged
+  // out tab and the console. me() both confirms the access token and, via
+  // authed()'s own retry, refreshes it if only that had expired.
   useEffect(() => {
-    const saved = sessionStorage.getItem(KEY);
-    if (saved) {
-      const s = JSON.parse(saved) as Saved;
-      setAll(s.all ?? seedDetections(Date.now()));
-      if (s.traffic) setTraffic(s.traffic);
-      if (s.risk) setRisk(s.risk);
-      if (s.org) setOrg(s.org);
-      if (s.offices?.length) setOffices(s.offices);
-      if (s.mode) setModeState(s.mode);
-    } else {
-      setAll(seedDetections(Date.now()));
-    }
-    // localStorage, so this has to wait for the client.
-    setCanGoLive(Boolean(getAccessToken()));
-    setReady(true);
-  }, []);
+    let cancelled = false;
+    (async () => {
+      try {
+        await me();
+      } catch {
+        if (!cancelled) router.replace("/login");
+        return;
+      }
+      if (cancelled) return;
+
+      // Survives a reload mid-demo. sessionStorage, not local — a new tab
+      // should start from the clean seed.
+      const saved = sessionStorage.getItem(KEY);
+      if (saved) {
+        const s = JSON.parse(saved) as Saved;
+        setAll(s.all ?? seedDetections(Date.now()));
+        if (s.traffic) setTraffic(s.traffic);
+        if (s.risk) setRisk(s.risk);
+        if (s.org) setOrg(s.org);
+        if (s.offices?.length) setOffices(s.offices);
+        if (s.mode) setModeState(s.mode);
+      } else {
+        setAll(seedDetections(Date.now()));
+      }
+      setCanGoLive(true); // me() above already proved there is a session
+      setReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   // Deliberately not keyed on traffic — it ticks every 1.6s and would rewrite
   // the whole log each time for nothing.

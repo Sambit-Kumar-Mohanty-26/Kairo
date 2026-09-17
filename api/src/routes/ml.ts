@@ -1,16 +1,16 @@
 import { Router } from "express";
 import { z } from "zod";
 import { MAX_FLOWS, callModel, classify } from "../model.js";
-import { route, validate } from "../middleware.js";
+import { authGuard, route, validate } from "../middleware.js";
 
 /* Test Mode's path to the model, and the Model tab's metrics. Live Mode does
    not come through here — it arrives at /ingest from an agent holding a sensor
    key, which is a different trust boundary and a different rate limit.
 
-   NOT guarded yet, deliberately, because /dashboard is not guarded yet either
-   and Test Mode has to work from it. That is one decision, not two: the day
-   authGuard goes back on the console, it goes on these two routes. */
+   Guarded now that /dashboard is: this was the other half of that one
+   decision, not a second one. */
 export const mlRouter = Router();
+mlRouter.use(authGuard);
 
 /** Flow rows are numeric columns whose names come from the model, not from us —
  *  validating the keys here would mean duplicating the feature list and letting
