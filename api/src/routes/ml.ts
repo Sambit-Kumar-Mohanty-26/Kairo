@@ -29,10 +29,13 @@ const predictBody = z.object({
     .max(MAX_FLOWS, `Send at most ${MAX_FLOWS} flows per request.`),
 });
 
-/** Cold start is ~50s of wake plus a 4s unpickle, so /model and /health get
- *  room to answer it; /predict does not, because a warm predict is ~5ms and a
- *  slow one means the instance is in trouble. */
-const TIMEOUT_MS = { predict: 10_000, meta: 60_000 };
+/** Generous on both, because the ML service is on a plan that sleeps: the
+ *  first call after 15 minutes idle pays ~50s of wake plus a 4s unpickle,
+ *  and a 10s timeout turns that into a 503 that looks like an outage. A warm
+ *  predict is ~140ms, so anything past a second or two is a cold start, not
+ *  slowness. Drop predict to 10s once the service is always-on — then a slow
+ *  predict really does mean the instance is in trouble. */
+const TIMEOUT_MS = { predict: 60_000, meta: 60_000 };
 
 async function call(path: string, init: RequestInit, timeoutMs: number) {
   if (!config.mlUrl) throw new HttpError(503, "No model service is configured.");

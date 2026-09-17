@@ -37,11 +37,12 @@ services:
     name: kairo-ml
     runtime: python
     rootDir: ml
-    # Loading the cascade costs 226 MB resident (43 MB pickle: two XGBoost
-    # models plus 600 trees) and 4s, before uvicorn. Free's 512 MB fits one
-    # worker with no headroom, and free spins down — the first request after
-    # idle pays the wake *and* the unpickle. starter is the honest floor.
-    plan: starter
+    # Measured, one uvicorn worker serving 2,000 flows: 257 MB resident and
+    # flat, so free's 512 MB fits with room. What free costs is the 15-minute
+    # spin-down — the next request then pays ~50s of wake plus 4s to unpickle,
+    # which is why api/src/routes/ml.ts allows 60s. Move to starter for
+    # always-on, not for memory. Two workers do not fit either way.
+    plan: free
     # The artifact is gitignored, so the build downloads it. Set
     # KAIRO_MODEL_URL to a public model.joblib; the step fails the build if it
     # cannot get one, rather than shipping a service that 503s.
