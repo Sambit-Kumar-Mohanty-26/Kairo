@@ -26,12 +26,18 @@ from .config import MODEL_PATH
 MIN_BYTES = 1_000_000
 
 
-def fetch(url: str, dest=MODEL_PATH) -> int:
+def fetch(url: str, dest=MODEL_PATH, token: str = "") -> int:
     dest.parent.mkdir(parents=True, exist_ok=True)
+    # A bearer token, so the artifact can live in a private bucket or a private
+    # Hugging Face repo instead of on the open internet. Unauthenticated hosts
+    # ignore the header; without a token the request is made without one.
+    req = urllib.request.Request(url)
+    if token:
+        req.add_header("Authorization", f"Bearer {token}")
     # .part first: a half-written model.joblib that looks complete is worse
     # than no model at all, because load() will try to unpickle it.
     part = dest.with_suffix(".part")
-    with urllib.request.urlopen(url, timeout=300) as r, part.open("wb") as f:
+    with urllib.request.urlopen(req, timeout=300) as r, part.open("wb") as f:
         while chunk := r.read(1 << 20):
             f.write(chunk)
     size = part.stat().st_size
@@ -59,7 +65,7 @@ def main() -> int:
         )
         return 1
     try:
-        size = fetch(url)
+        size = fetch(url, token=os.getenv("KAIRO_MODEL_TOKEN", "").strip())
     except (urllib.error.URLError, ValueError, OSError) as e:
         print(f"could not fetch the model: {e}", file=sys.stderr)
         return 1

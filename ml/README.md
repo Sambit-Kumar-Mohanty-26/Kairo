@@ -83,8 +83,9 @@ per flow in the console's own shape.
 The artifact is gitignored, so the deploy fetches it:
 `python -m kairo_ml.fetch_model` downloads `KAIRO_MODEL_URL` to
 `artifacts/model.joblib` and exits non-zero if it cannot, which fails the build
-rather than shipping a service that 503s. Any plain URL works — a public
-Hugging Face model repo, an S3 object, a release asset.
+rather than shipping a service that 503s. Any plain URL works — a Hugging Face
+model repo, an S3 object, a release asset — and `KAIRO_MODEL_TOKEN` is sent as
+a bearer token when set, so the repo does not have to be public.
 
 Sizing, measured on this artifact: 43 MB pickle, **226 MB resident** once
 loaded, 4s to unpickle, ~5ms per flow warm. One uvicorn worker per instance;
