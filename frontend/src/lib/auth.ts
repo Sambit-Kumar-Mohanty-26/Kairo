@@ -119,6 +119,40 @@ export function googleUrl() {
   return "/api/auth/google/start";
 }
 
+/** How long to keep trying to reach the API before giving up. Render's free
+ *  tier sleeps after 15 minutes and takes roughly half a minute to come back;
+ *  this leaves room for a slow one. */
+const WAKE_BUDGET_MS = 75_000;
+
+/** Trades Google's one-time code for a session.
+ *
+ *  Retries while the API is unreachable, which no other call bothers to do.
+ *  The difference is that the code is single use: if this fails the user has
+ *  to start sign-in over, so waiting out a cold start is better than an error.
+ *  Anything the server actually answers — a stale code, a disabled account —
+ *  is final and throws on the first attempt. */
+export async function googleExchange(code: string): Promise<void> {
+  const deadline = Date.now() + WAKE_BUDGET_MS;
+  for (;;) {
+    try {
+      const t = await request<Pick<TokenPair, "access_token" | "refresh_token">>(
+        "/auth/google/exchange",
+        { method: "POST", body: JSON.stringify({ code }) },
+      );
+      // A waking instance can answer with its host's holding page, which is a
+      // 200 carrying HTML. request() turns that into null rather than a throw.
+      if (!t?.access_token) throw new ApiError(0, "The server is still starting up.");
+      storeSession(t);
+      return;
+    } catch (e) {
+      const status = e instanceof ApiError ? e.status : -1;
+      const waking = status === 0 || status >= 502;
+      if (!waking || Date.now() > deadline) throw e;
+      await new Promise((r) => setTimeout(r, 3_000));
+    }
+  }
+}
+
 /** Runs an authenticated request, refreshing once on 401 — the access token
  *  only lasts 30 minutes and the console polls for longer than that. Every
  *  signed-in call goes through here, so the retry is written once. */

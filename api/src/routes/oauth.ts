@@ -1,49 +1,53 @@
 import { Router } from "express";
 import { OAuth2Client } from "google-auth-library";
+import { z } from "zod";
 import { config, googleEnabled } from "../config.js";
 import { prisma } from "../db.js";
-import { HttpError, route } from "../middleware.js";
+import { HttpError, route, validate } from "../middleware.js";
 import { uniqueSlug } from "../org.js";
 import { createAccessToken, newOpaqueToken } from "../security.js";
 
 export const oauthRouter = Router();
 
-/* Set by the frontend's /api/auth/google/start route handler, not by us — the
-   flow no longer starts here. Same origin as this callback (which the frontend
-   rewrites through), so the browser sends it back and we can still verify it. */
-const STATE_COOKIE = "kairo_oauth_state";
+/* The browser never navigates here any more. The frontend owns both visible
+   legs of Google sign-in — it builds the authorisation URL and it receives the
+   redirect — and then calls this over fetch to trade the code for a session.
 
-function client() {
-  return new OAuth2Client(
-    config.googleClientId,
-    config.googleClientSecret,
-    config.oauthRedirectUrl,
-  );
-}
+   That is what keeps Render off screen: a full-page navigation shows whatever
+   host serves it, so on a cold start the user got Render's "waking up" page.
+   A fetch shows nothing, so the frontend can sit on its own "Signing you in"
+   screen and retry until the service is up.
 
-/** Sends the browser back to the frontend with the outcome in the URL
- *  *fragment* — a fragment is never sent to a server, so tokens stay out of
- *  access logs and Referer headers. */
-function bounce(res: import("express").Response, params: Record<string, string>) {
-  res.redirect(`${config.frontendUrl}/auth/callback#${new URLSearchParams(params)}`);
-}
+   No state check here: the frontend verified it against its own first-party
+   cookie before handing us the code. Nothing is lost by that — state exists to
+   stop an attacker pinning their identity onto a victim's *session*, and this
+   route returns tokens in its response body rather than setting anything on
+   the caller, so replaying someone else's code only logs you in as them. */
 
-oauthRouter.get(
-  "/google/callback",
+const exchangeBody = z.object({ code: z.string().min(1, "Missing authorization code.") });
+
+oauthRouter.post(
+  "/google/exchange",
   route(async (req, res) => {
     if (!googleEnabled) throw new HttpError(503, "Google sign-in isn't configured.");
 
-    const { code, state } = req.query as { code?: string; state?: string };
-    const expected = req.cookies?.[STATE_COOKIE];
-    res.clearCookie(STATE_COOKIE);
+    const { code } = validate(exchangeBody, req.body);
 
-    if (!code || !state || !expected || state !== expected) {
-      return bounce(res, { error: "Google sign-in didn't complete. Try again." });
-    }
+    const oauth = new OAuth2Client(
+      config.googleClientId,
+      config.googleClientSecret,
+      // Google checks this matches the one used to get the code. The frontend
+      // sends the browser to <its origin>/api/auth/google/callback, so this
+      // must resolve to exactly that — see config.oauthRedirectUrl.
+      config.oauthRedirectUrl,
+    );
 
-    const oauth = client();
-    const { tokens } = await oauth.getToken(code);
-    if (!tokens.id_token) return bounce(res, { error: "Google didn't return an identity." });
+    const { tokens } = await oauth.getToken(code).catch(() => {
+      // Codes are single use and expire in minutes; a reload of the callback
+      // page is the usual way to get here.
+      throw new HttpError(400, "Google sign-in didn't complete. Try again.");
+    });
+    if (!tokens.id_token) throw new HttpError(400, "Google didn't return an identity.");
 
     // Verifies the RS256 signature against Google's JWKS, plus issuer and
     // audience. Decoding without this would accept anything.
@@ -52,7 +56,7 @@ oauthRouter.get(
     ).getPayload();
 
     if (!payload?.email || !payload.email_verified) {
-      return bounce(res, { error: "That Google account has no verified email." });
+      throw new HttpError(400, "That Google account has no verified email.");
     }
 
     const address = payload.email.toLowerCase();
@@ -87,7 +91,7 @@ oauthRouter.get(
       });
     }
 
-    if (!user.isActive) return bounce(res, { error: "This account is disabled." });
+    if (!user.isActive) throw new HttpError(403, "This account is disabled.");
 
     const { raw, hashed } = newOpaqueToken();
     await prisma.refreshToken.create({
@@ -98,7 +102,7 @@ oauthRouter.get(
       },
     });
 
-    bounce(res, {
+    res.json({
       access_token: createAccessToken({
         sub: user.id,
         org: user.organizationId,
@@ -108,4 +112,3 @@ oauthRouter.get(
     });
   }),
 );
-
