@@ -112,8 +112,11 @@ export function resetPassword(token: string, password: string) {
   }).then((t) => (storeSession(t), t));
 }
 
+/** Same-origin on purpose: next.config.ts rewrites this to the API. OAuth is
+ *  the only flow that navigates the browser rather than fetching, so it is the
+ *  only place the API's hostname would ever be visible to a user. */
 export function googleUrl() {
-  return `${API}/auth/google/start`;
+  return "/api/auth/google/start";
 }
 
 /** Runs an authenticated request, refreshing once on 401 — the access token

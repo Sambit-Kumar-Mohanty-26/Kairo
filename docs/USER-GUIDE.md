@@ -37,7 +37,9 @@ needs an account, and the figures quoted in it are read off the trained
 artifact rather than written by hand.
 
 `/login`, `/register`, `/forgot-password` and `/reset-password` all work.
-Google sign-in is wired (`/auth/google` → `/auth/callback`).
+Google sign-in is wired, and proxied through this origin so the whole flow
+reads as one site: `/api/auth/google/start` → Google → `/auth/callback`. The
+API's own hostname never appears in the address bar.
 
 ---
 

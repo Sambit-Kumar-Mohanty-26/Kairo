@@ -11,10 +11,12 @@ export const oauthRouter = Router();
 
 const STATE_COOKIE = "kairo_oauth_state";
 
-function client(req: { protocol: string; get(h: string): string | undefined }) {
-  // Must match the redirect URI registered in the Google console exactly.
-  const base = `${req.protocol}://${req.get("host")}`;
-  return new OAuth2Client(config.googleClientId, config.googleClientSecret, `${base}/auth/google/callback`);
+function client() {
+  return new OAuth2Client(
+    config.googleClientId,
+    config.googleClientSecret,
+    config.oauthRedirectUrl,
+  );
 }
 
 oauthRouter.get(
@@ -23,8 +25,10 @@ oauthRouter.get(
     if (!googleEnabled) throw new HttpError(503, "Google sign-in isn't configured.");
 
     const state = crypto.randomBytes(16).toString("hex");
-    // First-party on the API origin, so it survives the round trip to Google
-    // and back. SameSite=lax is the loosest that still blocks CSRF here.
+    // Reaches the browser through the frontend's rewrite, so it is scoped to
+    // that origin and is genuinely first-party — it survives the round trip to
+    // Google whatever a browser thinks of third-party cookies. SameSite=lax is
+    // the loosest that still blocks CSRF here.
     res.cookie(STATE_COOKIE, state, {
       httpOnly: true,
       secure: req.protocol === "https",
@@ -33,7 +37,7 @@ oauthRouter.get(
     });
 
     res.redirect(
-      client(req).generateAuthUrl({ scope: ["openid", "email", "profile"], state }),
+      client().generateAuthUrl({ scope: ["openid", "email", "profile"], state }),
     );
   }),
 );
@@ -58,7 +62,7 @@ oauthRouter.get(
       return bounce(res, { error: "Google sign-in didn't complete. Try again." });
     }
 
-    const oauth = client(req);
+    const oauth = client();
     const { tokens } = await oauth.getToken(code);
     if (!tokens.id_token) return bounce(res, { error: "Google didn't return an identity." });
 

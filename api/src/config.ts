@@ -34,6 +34,15 @@ export const config = {
   googleClientId: process.env.GOOGLE_CLIENT_ID ?? "",
   googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
 
+  // Where Google sends the browser back. Deliberately NOT derived from the
+  // request host: the browser reaches these two routes through a rewrite on
+  // the frontend origin, so the host Express sees is this service's own and
+  // using it would put the API's URL in the address bar — which is the thing
+  // the rewrite exists to prevent. Must match the Google console exactly.
+  oauthRedirectUrl:
+    process.env.OAUTH_REDIRECT_URL?.replace(/\/$/, "") ??
+    `${(process.env.FRONTEND_URL ?? "http://localhost:3000").replace(/\/$/, "")}/api/auth/google/callback`,
+
   // The Python inference service. Unset means /ml answers 503 rather than
   // guessing a localhost port — the API's own default port is 8000 too, so a
   // wrong guess would have it calling itself. Locally: :8001.
