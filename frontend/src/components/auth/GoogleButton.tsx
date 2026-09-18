@@ -4,7 +4,7 @@ import React from "react";
 import GoogleGlyph from "./GoogleGlyph";
 
 /**
- * Sends the browser to the backend's /auth/google/start, which hands off to
+ * Sends the browser to /api/auth/google/start, which redirects to
  * Google and redirects back to /auth/callback with tokens in the fragment.
  */
 export default function GoogleButton({

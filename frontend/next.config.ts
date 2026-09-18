@@ -7,16 +7,19 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   /* Google sign-in is a full-page navigation, so whatever host serves it is
-     the host in the address bar. Sending the browser straight to the API meant
-     a Render URL on screen twice — once on the way to Google, once on the way
-     back — which reads as a redirect through somewhere unrelated. Proxying the
-     two OAuth routes keeps the whole flow on this origin.
+     the host in the address bar. Only the callback is proxied: the outbound leg
+     is a route handler in this app (app/api/auth/google/start), because it needs
+     nothing but a public client_id and bouncing off Render to build it showed
+     Render's cold-start page on our own domain. The callback does need the API —
+     that is where the client secret and the session live.
 
-     Only these two routes: NEXT_PUBLIC_API_URL stays the real absolute URL
-     because the sensor agent runs on the customer's own network and cannot
-     resolve a path relative to this app. */
+     NEXT_PUBLIC_API_URL stays the real absolute URL everywhere else: the sensor
+     agent runs on the customer's own network and cannot resolve a path relative
+     to this app. */
   async rewrites() {
-    return [{ source: "/api/auth/google/:path*", destination: `${API}/auth/google/:path*` }];
+    return [
+      { source: "/api/auth/google/callback", destination: `${API}/auth/google/callback` },
+    ];
   },
 };
 

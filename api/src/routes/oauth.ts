@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import { Router } from "express";
 import { OAuth2Client } from "google-auth-library";
 import { config, googleEnabled } from "../config.js";
@@ -9,6 +8,9 @@ import { createAccessToken, newOpaqueToken } from "../security.js";
 
 export const oauthRouter = Router();
 
+/* Set by the frontend's /api/auth/google/start route handler, not by us — the
+   flow no longer starts here. Same origin as this callback (which the frontend
+   rewrites through), so the browser sends it back and we can still verify it. */
 const STATE_COOKIE = "kairo_oauth_state";
 
 function client() {
@@ -18,29 +20,6 @@ function client() {
     config.oauthRedirectUrl,
   );
 }
-
-oauthRouter.get(
-  "/google/start",
-  route(async (req, res) => {
-    if (!googleEnabled) throw new HttpError(503, "Google sign-in isn't configured.");
-
-    const state = crypto.randomBytes(16).toString("hex");
-    // Reaches the browser through the frontend's rewrite, so it is scoped to
-    // that origin and is genuinely first-party — it survives the round trip to
-    // Google whatever a browser thinks of third-party cookies. SameSite=lax is
-    // the loosest that still blocks CSRF here.
-    res.cookie(STATE_COOKIE, state, {
-      httpOnly: true,
-      secure: req.protocol === "https",
-      sameSite: "lax",
-      maxAge: 600_000,
-    });
-
-    res.redirect(
-      client().generateAuthUrl({ scope: ["openid", "email", "profile"], state }),
-    );
-  }),
-);
 
 /** Sends the browser back to the frontend with the outcome in the URL
  *  *fragment* — a fragment is never sent to a server, so tokens stay out of
