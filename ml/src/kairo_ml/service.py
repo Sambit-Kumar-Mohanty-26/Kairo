@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, Field
 
 from . import __version__
@@ -22,11 +24,25 @@ from .config import METRICS_PATH
 from .infer import load, predict
 
 app = FastAPI(title="Kairo ML", version=__version__)
+ML_TOKEN = os.getenv("KAIRO_ML_TOKEN", "").strip()
+if not ML_TOKEN:
+    raise RuntimeError("KAIRO_ML_TOKEN must be configured before starting the ML service.")
+allowed_origins = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()]
+if not allowed_origins:
+    raise RuntimeError("ALLOWED_ORIGINS must contain at least one explicit origin.")
+bearer = HTTPBearer(auto_error=False)
+
+
+def require_ml_auth(credentials: HTTPAuthorizationCredentials | None = Depends(bearer)) -> None:
+    if not credentials or credentials.scheme.lower() != "bearer" or not secrets.compare_digest(
+        credentials.credentials, ML_TOKEN
+    ):
+        raise HTTPException(status_code=401, detail="ML service authentication required.")
 
 # Only the API should reach this. In production that is one origin, not "*".
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o] or ["*"],
+    allow_origins=allowed_origins,
     allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
@@ -46,7 +62,7 @@ def health() -> dict:
         return {"ok": False, "error": str(e)}
 
 
-@app.get("/model")
+@app.get("/model", dependencies=[Depends(require_ml_auth)])
 def model() -> dict:
     """The metrics the console's Model tab renders, straight from training."""
     if not METRICS_PATH.exists():
@@ -54,7 +70,7 @@ def model() -> dict:
     return json.loads(METRICS_PATH.read_text(encoding="utf-8"))
 
 
-@app.post("/predict")
+@app.post("/predict", dependencies=[Depends(require_ml_auth)])
 def predict_route(req: PredictRequest) -> dict:
     try:
         return {"detections": predict(req.flows)}

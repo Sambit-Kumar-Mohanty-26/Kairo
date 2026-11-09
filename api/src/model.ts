@@ -32,6 +32,10 @@ export async function callModel<T>(path: string, init: RequestInit = {}): Promis
   try {
     res = await fetch(`${config.mlUrl}${path}`, {
       ...init,
+      headers: {
+        ...init.headers,
+        authorization: `Bearer ${config.mlToken}`,
+      },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
   } catch (err) {

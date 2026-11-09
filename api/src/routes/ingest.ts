@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { MAX_FLOWS, classify } from "../model.js";
-import { route, validate } from "../middleware.js";
+import { rateLimit, route, validate } from "../middleware.js";
 import { sensorGuard } from "../sensor.js";
 
 /* Where Live Mode actually happens. An agent on the customer's network turns
@@ -57,6 +57,7 @@ ingestRouter.get(
 
 ingestRouter.post(
   "/flows",
+  rateLimit({ windowMs: 60_000, max: 120 }),
   route(async (req, res) => {
     const { flows, batch_id } = validate(body, req.body);
     const sensor = req.sensor!;

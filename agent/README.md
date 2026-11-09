@@ -135,7 +135,7 @@ a labelled flow from your network, and that is what closes the gap above.
 | Symptom | Cause |
 |---|---|
 | `could not register: 401` | Wrong or revoked key. Register a new sensor. |
-| `could not reach ...` | `KAIRO_URL` or egress. The agent retries at 1 s, 3 s, 9 s, then drops the batch and says so. |
+| `could not reach ...` | `KAIRO_URL` or egress. Remote URLs must use HTTPS; only localhost development may use HTTP. The agent retries at 1 s, 3 s, 9 s, then drops the batch and says so. |
 | `packet capture needs root` | Run under `sudo -E`, or `setcap` as above. |
 | Sensor shows live, no detections | Normal. Benign flows become counters, not rows — check "flows analysed" is climbing. |
 | No packets at all | The interface is not seeing the traffic. `sudo tcpdump -i eth0 -c 5` first; if that is empty, the problem is the mirror, not the agent. |

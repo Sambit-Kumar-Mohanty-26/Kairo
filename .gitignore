@@ -58,3 +58,7 @@ scratch/
 
 /notes
 *.tsbuildinfo
+
+# Local project documentation
+/docs/PROJECT-DOCUMENTATION.md
+/docs/AUDIT-REPORT.md

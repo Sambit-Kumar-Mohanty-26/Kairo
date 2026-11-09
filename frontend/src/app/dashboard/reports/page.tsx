@@ -23,7 +23,7 @@ const PERIODS: [string, number][] = [
    It reads top to bottom and prints as it reads — the rail and scope bar drop
    out under print:hidden in the shell. */
 export default function ReportsPage() {
-  const { detections, org, office, offices } = useConsole();
+  const { detections, org, office, offices, mode } = useConsole();
   const [period, setPeriod] = useState(PERIODS[0][0]);
   // the stamp is the one value the server cannot agree with the client on
   const [generated, setGenerated] = useState<number | null>(null);
@@ -199,7 +199,7 @@ export default function ReportsPage() {
       </section>
 
       <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#8A8E86] mt-10">
-        Generated {generated ? clock(generated) : "—"} · fixture data · Kairo {org}
+        Generated {generated ? clock(generated) : "—"} · {mode === "live" ? "live data" : "fixture data"} · Kairo {org}
       </p>
     </div>
   );

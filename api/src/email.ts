@@ -6,7 +6,7 @@ import { config } from "./config.js";
  */
 export async function sendPasswordReset(to: string, resetUrl: string): Promise<void> {
   if (!config.resendApiKey) {
-    console.warn(`RESEND_API_KEY unset - password reset link for ${to}: ${resetUrl}`);
+    console.warn(`RESEND_API_KEY unset - password reset email was not sent to ${to}`);
     return;
   }
 

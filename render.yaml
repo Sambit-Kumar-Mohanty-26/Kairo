@@ -32,6 +32,10 @@ services:
         sync: false
       - key: EMAIL_FROM # must be a domain verified in Resend
         sync: false
+      - key: ML_URL
+        sync: false
+      - key: KAIRO_ML_TOKEN
+        sync: false
 
   - type: web
     name: kairo-ml
@@ -44,8 +48,8 @@ services:
     # always-on, not for memory. Two workers do not fit either way.
     plan: free
     # The artifact is gitignored, so the build downloads it. Set
-    # KAIRO_MODEL_URL to a public model.joblib; the step fails the build if it
-    # cannot get one, rather than shipping a service that 503s.
+    # KAIRO_MODEL_URL and KAIRO_MODEL_SHA256 identify a trusted artifact; the
+    # step fails the build if the checksum is missing or does not match.
     buildCommand: pip install -r requirements.txt && python -m kairo_ml.fetch_model
     startCommand: uvicorn kairo_ml.service:app --host 0.0.0.0 --port $PORT
     # /health reports whether a model is loadable, not merely that Python is
@@ -57,6 +61,10 @@ services:
       - key: PYTHON_VERSION # numpy 2.x and xgboost 3.x wheels; trained on this
         value: 3.13.1
       - key: KAIRO_MODEL_URL
+        sync: false
+      - key: KAIRO_MODEL_SHA256
+        sync: false
+      - key: KAIRO_ML_TOKEN
         sync: false
       # Set only if the artifact is in a private repo or bucket; sent as a
       # bearer token on the one GET the build makes.

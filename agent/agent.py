@@ -235,6 +235,14 @@ def main() -> int:
     p.add_argument("--filter", dest="bpf", default=os.getenv("KAIRO_BPF"))
     args = p.parse_args()
 
+    parsed = urllib.parse.urlparse(args.url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        print("KAIRO_URL must be an absolute http(s) URL.", file=sys.stderr)
+        return 1
+    if parsed.scheme != "https" and parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        print("KAIRO_URL must use HTTPS outside localhost.", file=sys.stderr)
+        return 1
+
     if not args.key:
         print(
             "No sensor key. Create a sensor in Settings > Network, then:\n"

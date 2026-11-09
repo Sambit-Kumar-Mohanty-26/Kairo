@@ -47,9 +47,14 @@ export const config = {
   // guessing a localhost port — the API's own default port is 8000 too, so a
   // wrong guess would have it calling itself. Locally: :8001.
   mlUrl: (process.env.ML_URL ?? "").replace(/\/$/, ""),
+  mlToken: process.env.KAIRO_ML_TOKEN ?? "",
 
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "Kairo <onboarding@resend.dev>",
 };
 
 export const googleEnabled = Boolean(config.googleClientId && config.googleClientSecret);
+
+if (config.mlUrl && !config.mlToken) {
+  throw new Error("KAIRO_ML_TOKEN is required when ML_URL is configured.");
+}

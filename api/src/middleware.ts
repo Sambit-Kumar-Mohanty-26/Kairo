@@ -31,6 +31,40 @@ export function validate<T>(schema: ZodSchema<T>, body: unknown): T {
   }
 }
 
+type RateLimitOptions = {
+  windowMs: number;
+  max: number;
+  message?: string;
+};
+
+/** Small-process guard for abuse-prone endpoints. A shared edge limiter should
+ * still be used in a multi-instance deployment, but this protects local and
+ * single-instance deployments by default. */
+export function rateLimit({
+  windowMs,
+  max,
+  message = "Too many requests. Try again later.",
+}: RateLimitOptions): RequestHandler {
+  const hits = new Map<string, { count: number; resetAt: number }>();
+  return (req, res, next) => {
+    const now = Date.now();
+    const key = req.ip || req.socket.remoteAddress || "unknown";
+    const current = hits.get(key);
+    if (!current || current.resetAt <= now) {
+      hits.set(key, { count: 1, resetAt: now + windowMs });
+      next();
+      return;
+    }
+    current.count += 1;
+    if (current.count > max) {
+      res.setHeader("Retry-After", Math.ceil((current.resetAt - now) / 1000));
+      res.status(429).json({ detail: message });
+      return;
+    }
+    next();
+  };
+}
+
 type AuthedUser = NonNullable<Awaited<ReturnType<typeof findUser>>>;
 
 function findUser(id: string) {

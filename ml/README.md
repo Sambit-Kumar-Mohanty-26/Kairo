@@ -82,7 +82,10 @@ per flow in the console's own shape.
 
 The artifact is gitignored, so the deploy fetches it:
 `python -m kairo_ml.fetch_model` downloads `KAIRO_MODEL_URL` to
-`artifacts/model.joblib` and exits non-zero if it cannot, which fails the build
+`artifacts/model.joblib` and exits non-zero if it cannot. Set
+`KAIRO_MODEL_SHA256` to the trusted artifact checksum; downloads and existing
+artifacts are rejected when the checksum is absent or does not match. The
+service also requires `KAIRO_ML_TOKEN` and an explicit `ALLOWED_ORIGINS` value.
 rather than shipping a service that 503s. Any plain URL works — a Hugging Face
 model repo, an S3 object, a release asset — and `KAIRO_MODEL_TOKEN` is sent as
 a bearer token when set, so the repo does not have to be public.

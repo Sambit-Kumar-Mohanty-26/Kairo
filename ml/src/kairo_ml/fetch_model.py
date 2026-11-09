@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 import sys
+import hashlib
 import urllib.error
 import urllib.request
 
@@ -26,7 +27,17 @@ from .config import MODEL_PATH
 MIN_BYTES = 1_000_000
 
 
-def fetch(url: str, dest=MODEL_PATH, token: str = "") -> int:
+def checksum(path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(1 << 20):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def fetch(url: str, dest=MODEL_PATH, token: str = "", sha256: str = "") -> int:
+    if not sha256:
+        raise ValueError("KAIRO_MODEL_SHA256 must be set when downloading a model")
     dest.parent.mkdir(parents=True, exist_ok=True)
     # A bearer token, so the artifact can live in a private bucket or a private
     # Hugging Face repo instead of on the open internet. Unauthenticated hosts
@@ -37,13 +48,19 @@ def fetch(url: str, dest=MODEL_PATH, token: str = "") -> int:
     # .part first: a half-written model.joblib that looks complete is worse
     # than no model at all, because load() will try to unpickle it.
     part = dest.with_suffix(".part")
+    digest = hashlib.sha256()
     with urllib.request.urlopen(req, timeout=300) as r, part.open("wb") as f:
         while chunk := r.read(1 << 20):
             f.write(chunk)
+            digest.update(chunk)
     size = part.stat().st_size
     if size < MIN_BYTES:
         part.unlink()
         raise ValueError(f"{url} returned {size} bytes — not a model")
+    actual = digest.hexdigest()
+    if actual.lower() != sha256.strip().lower():
+        part.unlink()
+        raise ValueError("downloaded model checksum does not match KAIRO_MODEL_SHA256")
     part.replace(dest)
     return size
 
@@ -52,8 +69,15 @@ def main() -> int:
     # Present wins over configured: a Render disk or a warm build cache may
     # already have it, and re-downloading 43 MB per deploy buys nothing. Delete
     # the file to force a fetch.
+    expected = os.getenv("KAIRO_MODEL_SHA256", "").strip()
     if MODEL_PATH.exists():
-        print(f"model already present at {MODEL_PATH}, skipping download")
+        if not expected:
+            print("KAIRO_MODEL_SHA256 must be set to use an existing model.", file=sys.stderr)
+            return 1
+        if checksum(MODEL_PATH).lower() != expected.lower():
+            print("existing model checksum does not match KAIRO_MODEL_SHA256", file=sys.stderr)
+            return 1
+        print(f"model already present at {MODEL_PATH}, checksum verified")
         return 0
     url = os.getenv("KAIRO_MODEL_URL", "").strip()
     if not url:
@@ -65,7 +89,11 @@ def main() -> int:
         )
         return 1
     try:
-        size = fetch(url, token=os.getenv("KAIRO_MODEL_TOKEN", "").strip())
+        size = fetch(
+            url,
+            token=os.getenv("KAIRO_MODEL_TOKEN", "").strip(),
+            sha256=expected,
+        )
     except (urllib.error.URLError, ValueError, OSError) as e:
         print(f"could not fetch the model: {e}", file=sys.stderr)
         return 1

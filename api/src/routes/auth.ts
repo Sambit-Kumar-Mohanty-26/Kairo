@@ -3,7 +3,7 @@ import { z } from "zod";
 import { config } from "../config.js";
 import { prisma } from "../db.js";
 import { sendPasswordReset } from "../email.js";
-import { HttpError, authGuard, route, validate } from "../middleware.js";
+import { HttpError, authGuard, rateLimit, route, validate } from "../middleware.js";
 import {
   createAccessToken,
   hashPassword,
@@ -51,6 +51,7 @@ async function issueTokens(user: UserWithOrg) {
 
 authRouter.post(
   "/register",
+  rateLimit({ windowMs: 15 * 60_000, max: 10 }),
   route(async (req, res) => {
     const body = validate(registerIn, req.body);
     const address = body.email.toLowerCase().trim();
@@ -86,6 +87,7 @@ authRouter.post(
 
 authRouter.post(
   "/login",
+  rateLimit({ windowMs: 15 * 60_000, max: 10 }),
   route(async (req, res) => {
     const body = validate(loginIn, req.body);
     const user = await prisma.user.findUnique({
@@ -148,6 +150,7 @@ authRouter.get(
 
 authRouter.post(
   "/forgot-password",
+  rateLimit({ windowMs: 15 * 60_000, max: 5 }),
   route(async (req, res) => {
     const body = validate(forgotIn, req.body);
     const user = await prisma.user.findUnique({
@@ -176,6 +179,7 @@ authRouter.post(
 
 authRouter.post(
   "/reset-password",
+  rateLimit({ windowMs: 15 * 60_000, max: 10 }),
   route(async (req, res) => {
     const body = validate(resetIn, req.body);
     const row = await prisma.passwordResetToken.findUnique({
