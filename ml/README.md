@@ -86,6 +86,22 @@ The artifact is gitignored, so the deploy fetches it:
 `KAIRO_MODEL_SHA256` to the trusted artifact checksum; downloads and existing
 artifacts are rejected when the checksum is absent or does not match. The
 service also requires `KAIRO_ML_TOKEN` and an explicit `ALLOWED_ORIGINS` value.
+
+The deployed cascade keeps the same seven classes, 30-feature input contract,
+two-stage gate/namer inference, confidence, risk, severity, and evidence
+output. Its tree counts are compacted to fit Render Free memory; this changes
+only the internal model footprint, not the service contract or dashboard
+features.
+
+For the current compact checked-out `artifacts/model.joblib`, the SHA-256 checksum is:
+
+```text
+C4DFE073EA6F923C520B666371495BD03D263F66779D2C7D71FC6B7C488EE9B9
+```
+
+In Render, set the same randomly generated `KAIRO_ML_TOKEN` on both the
+`kairo-api` and `kairo-ml` services. Set `ML_URL` on `kairo-api` to the ML
+service URL, and set `KAIRO_MODEL_URL` plus the checksum above on `kairo-ml`.
 rather than shipping a service that 503s. Any plain URL works — a Hugging Face
 model repo, an S3 object, a release asset — and `KAIRO_MODEL_TOKEN` is sent as
 a bearer token when set, so the repo does not have to be public.

@@ -5,8 +5,6 @@ services:
     name: kairo-api
     runtime: node
     rootDir: api
-    # free spins down after ~15 min idle, so the first request then takes ~50s.
-    # Switch to starter when a cold start in a demo is unacceptable.
     plan: free
     # Migrations run in the build because preDeployCommand is paid-plans-only.
     # On a paid plan, move `npx prisma migrate deploy` into preDeployCommand:
@@ -34,18 +32,18 @@ services:
         sync: false
       - key: ML_URL
         sync: false
+        # Set to the kairo-ml public/internal URL, for example:
+        # https://kairo-ml.onrender.com
       - key: KAIRO_ML_TOKEN
         sync: false
+        # Use the exact same random secret value in kairo-api and kairo-ml.
 
   - type: web
     name: kairo-ml
     runtime: python
     rootDir: ml
-    # Measured, one uvicorn worker serving 2,000 flows: 257 MB resident and
-    # flat, so free's 512 MB fits with room. What free costs is the 15-minute
-    # spin-down — the next request then pays ~50s of wake plus 4s to unpickle,
-    # which is why api/src/routes/ml.ts allows 60s. Move to starter for
-    # always-on, not for memory. Two workers do not fit either way.
+    # The compact cascade artifact is sized for Render Free's 512 MB limit;
+    # keep one worker to avoid duplicating the artifact.
     plan: free
     # The artifact is gitignored, so the build downloads it. Set
     # KAIRO_MODEL_URL and KAIRO_MODEL_SHA256 identify a trusted artifact; the
@@ -64,8 +62,11 @@ services:
         sync: false
       - key: KAIRO_MODEL_SHA256
         sync: false
+        # Current compact local model.joblib:
+        # C4DFE073EA6F923C520B666371495BD03D263F66779D2C7D71FC6B7C488EE9B9
       - key: KAIRO_ML_TOKEN
         sync: false
+        # Use the exact same random secret value configured on kairo-api.
       # Set only if the artifact is in a private repo or bucket; sent as a
       # bearer token on the one GET the build makes.
       - key: KAIRO_MODEL_TOKEN

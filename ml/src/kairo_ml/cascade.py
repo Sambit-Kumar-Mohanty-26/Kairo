@@ -41,8 +41,8 @@ NAME = "Two-Stage Cascade"
 
 def _xgb(seed: int, **kw) -> XGBClassifier:
     return XGBClassifier(
-        n_estimators=400,
-        max_depth=8,
+        n_estimators=220,
+        max_depth=7,
         learning_rate=0.1,
         subsample=0.9,
         colsample_bytree=0.9,
@@ -67,13 +67,13 @@ def _namer(kind: str, seed: int):
             (
                 "Random Forest",
                 RandomForestClassifier(
-                    n_estimators=300, n_jobs=-1, class_weight="balanced", random_state=seed
+                    n_estimators=120, n_jobs=-1, class_weight="balanced", random_state=seed
                 ),
             ),
             (
                 "Extra Trees",
                 ExtraTreesClassifier(
-                    n_estimators=300,
+                    n_estimators=120,
                     criterion="entropy",
                     n_jobs=-1,
                     class_weight="balanced",
@@ -214,7 +214,7 @@ def _bootstrap(y_true, preds: dict, n: int = 1000, seed: int = 42) -> dict:
     return out
 
 
-def run(per_class: int = 60_000, seed: int = 42, namer: str = "stack") -> dict:
+def run(per_class: int = 60_000, seed: int = 42, namer: str = "xgb") -> dict:
     bench = json.loads((ARTIFACTS / "benchmark.json").read_text(encoding="utf-8"))
     features = bench["features"]
 
@@ -303,5 +303,5 @@ if __name__ == "__main__":
     from kairo_ml import cascade
 
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--namer", choices=("stack", "xgb"), default="stack")
+    ap.add_argument("--namer", choices=("stack", "xgb"), default="xgb")
     cascade.run(namer=ap.parse_args().namer)
