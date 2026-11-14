@@ -4,50 +4,50 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
-import { googleExchange } from "@/lib/auth";
+import { googleExchange, storeSession } from "@/lib/auth";
 
-/* React remounts effects in development, and the effect below scrubs the hash
-   on its first run, so a second run would find nothing there and report a
-   failure over a sign-in still in flight. Read the handoff once, outside the
-   component, and let the remount see the same values. */
 let handoff: URLSearchParams | null = null;
 let started = false;
 
-/**
- * Where Google lands, by way of this app's own /api/auth/google/callback.
- *
- * The code arrives in the URL *fragment*, which is never sent to a server, so
- * it stays out of access logs and Referer headers. The exchange for a session
- * happens here over fetch rather than as a redirect through the API, so a
- * cold-starting backend shows this screen instead of its host's own.
- */
 export default function AuthCallbackPage() {
   const router = useRouter();
   const [failed, setFailed] = useState<string | null>(null);
-  const [slow, setSlow] = useState(false);
 
   useEffect(() => {
     if (!handoff) {
       handoff = new URLSearchParams(window.location.hash.slice(1));
-      // Scrub before anything awaits: a spent code in history is still a code.
       window.history.replaceState(null, "", window.location.pathname);
     }
 
-    const code = handoff.get("code");
-    if (!code) {
-      setFailed(handoff.get("error") ?? "Google sign-in didn't complete.");
+    // Fast-path: tokens already exchanged server-to-server (Nexum architecture)
+    const accessToken = handoff.get("access_token");
+    const refreshToken = handoff.get("refresh_token");
+    if (accessToken && refreshToken) {
+      storeSession({ access_token: accessToken, refresh_token: refreshToken });
+      router.replace("/dashboard");
       return;
     }
-    if (started) return; // a code is good for exactly one exchange
+
+    const errorMsg = handoff.get("error");
+    if (errorMsg) {
+      setFailed(errorMsg);
+      return;
+    }
+
+    // Fallback: client exchange if raw code arrived directly
+    const code = handoff.get("code");
+    if (!code) {
+      setFailed("Google sign-in didn't complete.");
+      return;
+    }
+    if (started) return;
     started = true;
 
-    const hint = setTimeout(() => setSlow(true), 5_000);
     googleExchange(code)
       .then(() => router.replace("/dashboard"))
       .catch((e: unknown) =>
         setFailed(e instanceof Error ? e.message : "Google sign-in didn't complete."),
-      )
-      .finally(() => clearTimeout(hint));
+      );
   }, [router]);
 
   if (!failed) {
@@ -56,13 +56,6 @@ export default function AuthCallbackPage() {
         <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-[#8A8E86]">
           Signing you in&hellip;
         </p>
-        {/* Honest about the wait rather than looking hung. Only after five
-            seconds, so a warm backend never shows it. */}
-        {slow && (
-          <p className="text-[13.5px] leading-relaxed text-[#B0B4AC] max-w-[34ch]">
-            Waking the service. First sign-in after a quiet spell can take up to a minute.
-          </p>
-        )}
       </div>
     );
   }
