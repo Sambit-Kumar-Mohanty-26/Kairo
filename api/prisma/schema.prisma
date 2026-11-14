@@ -115,26 +115,65 @@ model Sensor {
   networkId   String    @map("network_id") @db.Uuid
   name        String    @db.VarChar(120)
   keyHash     String    @unique @map("key_hash") @db.VarChar(64)
-  /// Set on every accepted batch. "Live" is derived from this, not stored.
+  /// Set on every accepted batch and heartbeat. "Live" is derived from this.
   lastSeenAt  DateTime? @map("last_seen_at")
-  /// The last batch this sensor got a 200 for. A retry after a lost response
-  /// carries the same id and is answered without touching anything: detection
-  /// rows dedupe on (sensor, flow) anyway, but the minute counters increment,
-  /// so without this a retry inflates "flows analysed".
-  /// ponytail: one slot, not a table. It catches the retry that immediately
-  /// follows its own batch, which is every retry the agent actually makes. A
-  /// batch replayed after a later one has landed would still double-count —
-  /// give it its own table if that ever stops being hypothetical.
   lastBatchId String?   @map("last_batch_id") @db.VarChar(64)
   revokedAt   DateTime? @map("revoked_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  network    Network      @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  /// Operational health & telemetry fields (Phase 2)
+  version         String?   @db.VarChar(32)
+  status          String    @default("pending") @db.VarChar(20)
+  captureStatus   String?   @map("capture_status") @db.VarChar(30)
+  interfaceName   String?   @map("interface_name") @db.VarChar(64)
+  packetsObserved BigInt    @default(0) @map("packets_observed")
+  flowsExtracted  BigInt    @default(0) @map("flows_extracted")
+  pendingBatches  Int       @default(0) @map("pending_batches")
+  queueBytes      BigInt    @default(0) @map("queue_bytes")
+  lastHeartbeatAt DateTime? @map("last_heartbeat_at")
+  lastUploadAt    DateTime? @map("last_upload_at")
+  recentWarning   String?   @map("recent_warning") @db.VarChar(255)
+
+  network    Network           @relation(fields: [networkId], references: [id], onDelete: Cascade)
   detections Detection[]
   rollups    FlowRollup[]
+  heartbeats SensorHeartbeat[]
+  batches    IngestedBatch[]
 
   @@unique([networkId, name])
   @@map("sensors")
+}
+
+model SensorHeartbeat {
+  id              String   @id @default(uuid()) @db.Uuid
+  sensorId        String   @map("sensor_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+  status          String   @db.VarChar(20)
+  captureStatus   String?  @map("capture_status") @db.VarChar(30)
+  packetsObserved BigInt   @default(0) @map("packets_observed")
+  flowsExtracted  BigInt   @default(0) @map("flows_extracted")
+  pendingBatches  Int      @default(0) @map("pending_batches")
+  queueBytes      BigInt   @default(0) @map("queue_bytes")
+  warning         String?  @db.VarChar(255)
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@index([sensorId, createdAt])
+  @@map("sensor_heartbeats")
+}
+
+model IngestedBatch {
+  id        String   @id @default(uuid()) @db.Uuid
+  sensorId  String   @map("sensor_id") @db.Uuid
+  batchId   String   @map("batch_id") @db.VarChar(64)
+  flowCount Int      @map("flow_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  sensor Sensor @relation(fields: [sensorId], references: [id], onDelete: Cascade)
+
+  @@unique([sensorId, batchId])
+  @@index([sensorId, createdAt])
+  @@map("ingested_batches")
 }
 
 /// One row per attack verdict. Benign flows never become rows — they become

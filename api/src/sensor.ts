@@ -18,6 +18,29 @@ export const LIVE_WITHIN_MS = 2 * 60_000;
 export const isLive = (lastSeenAt: Date | null): boolean =>
   lastSeenAt !== null && Date.now() - lastSeenAt.getTime() < LIVE_WITHIN_MS;
 
+export type SensorHealthStatus = "online" | "degraded" | "offline" | "revoked" | "pending";
+
+export function computeSensorHealth(sensor: {
+  revokedAt?: Date | null;
+  lastSeenAt?: Date | null;
+  pendingBatches?: number | null;
+  recentWarning?: string | null;
+  captureStatus?: string | null;
+}): SensorHealthStatus {
+  if (sensor.revokedAt) return "revoked";
+  if (!sensor.lastSeenAt) return "pending";
+  if (Date.now() - sensor.lastSeenAt.getTime() > LIVE_WITHIN_MS) return "offline";
+  if (
+    (sensor.pendingBatches !== undefined && sensor.pendingBatches !== null && sensor.pendingBatches >= 10) ||
+    (sensor.recentWarning && sensor.recentWarning.length > 0) ||
+    sensor.captureStatus === "error" ||
+    sensor.captureStatus === "permission_denied"
+  ) {
+    return "degraded";
+  }
+  return "online";
+}
+
 /** `ksk_` so it is recognisable in a paste and greppable in a leak scan. */
 export function newSensorKey(): { raw: string; hashed: string } {
   const raw = `ksk_${crypto.randomBytes(32).toString("base64url")}`;

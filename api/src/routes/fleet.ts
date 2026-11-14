@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { HttpError, authGuard, route, validate } from "../middleware.js";
-import { isLive, newSensorKey } from "../sensor.js";
+import { computeSensorHealth, isLive, newSensorKey } from "../sensor.js";
 
 /* Offices, networks and sensors — the estate the console draws and the agent
    registers against. Guarded, unlike /ml: Test Mode is a demo anyone may click
@@ -24,12 +24,69 @@ const cidr = z
   .max(43)
   .regex(/^[0-9a-fA-F.:]+\/\d{1,3}$/, "Use CIDR notation, like 10.20.0.0/16.");
 
-const serialiseSensor = (s: { id: string; name: string; lastSeenAt: Date | null }) => ({
-  id: s.id,
-  name: s.name,
-  last_seen_at: s.lastSeenAt,
-  live: isLive(s.lastSeenAt),
-});
+const serialiseSensor = (s: {
+  id: string;
+  name: string;
+  lastSeenAt: Date | null;
+  revokedAt?: Date | null;
+  version?: string | null;
+  captureStatus?: string | null;
+  interfaceName?: string | null;
+  packetsObserved?: bigint | null;
+  flowsExtracted?: bigint | null;
+  pendingBatches?: number | null;
+  queueBytes?: bigint | null;
+  lastHeartbeatAt?: Date | null;
+  lastUploadAt?: Date | null;
+  recentWarning?: string | null;
+}) => {
+  const health = computeSensorHealth(s);
+  return {
+    id: s.id,
+    name: s.name,
+    last_seen_at: s.lastSeenAt,
+    live: health === "online" || health === "degraded",
+    status: health,
+    version: s.version ?? "0.1.0",
+    capture_status: s.captureStatus ?? (health === "pending" ? "unregistered" : "idle"),
+    interface: s.interfaceName ?? "default",
+    packets_observed: Number(s.packetsObserved ?? 0n),
+    flows_extracted: Number(s.flowsExtracted ?? 0n),
+    pending_batches: s.pendingBatches ?? 0,
+    queue_bytes: Number(s.queueBytes ?? 0n),
+    last_heartbeat_at: s.lastHeartbeatAt,
+    last_upload_at: s.lastUploadAt,
+    recent_warning: s.recentWarning ?? null,
+  };
+};
+
+function getTroubleshootingAdvice(sensor: ReturnType<typeof serialiseSensor>): string {
+  if (sensor.status === "revoked") {
+    return "Sensor access revoked. The agent cannot ingest flows. Create a new sensor key to resume monitoring.";
+  }
+  if (sensor.status === "pending") {
+    return "Sensor key minted but no heartbeat or flows received yet. Start the agent: sudo -E python agent/agent.py --interface <iface>";
+  }
+  if (sensor.status === "offline") {
+    return "No heartbeat received within 2 minutes. The sensor process may have exited, the host rebooted, or network connectivity is broken.";
+  }
+  if (sensor.status === "degraded") {
+    if (sensor.capture_status === "permission_denied") {
+      return "Packet capture permission denied. Scapy requires root or CAP_NET_RAW capability.";
+    }
+    if (sensor.pending_batches >= 10) {
+      return `Telemetry upload queue backpressure (${sensor.pending_batches} batches pending). Check outbound HTTPS latency or proxy configuration.`;
+    }
+    if (sensor.recent_warning) {
+      return `Operational warning: ${sensor.recent_warning}`;
+    }
+    return "Sensor communicating but experiencing subsystem issues.";
+  }
+  if (sensor.packets_observed === 0) {
+    return "Sensor is online and capture engine is active. Zero packets observed so far (monitored network interface is quiet).";
+  }
+  return "Sensor is fully operational, actively observing packets, extracting flows, and uploading telemetry.";
+}
 
 /** The whole estate in one request. Three levels deep is a small payload — a
  *  large fleet is hundreds of sensors, not millions — and it saves the console
@@ -47,7 +104,6 @@ fleetRouter.get(
             sensors: {
               where: { revokedAt: null },
               orderBy: { name: "asc" },
-              select: { id: true, name: true, lastSeenAt: true },
             },
           },
         },
@@ -63,6 +119,116 @@ fleetRouter.get(
           cidr: n.cidr,
           sensors: n.sensors.map(serialiseSensor),
         })),
+      })),
+    });
+  }),
+);
+
+/** Detailed inventory of sensors across the organization with status & pagination. */
+fleetRouter.get(
+  "/sensors",
+  route(async (req, res) => {
+    const organizationId = req.user!.organizationId;
+    const query = req.query;
+    const statusFilter = typeof query.status === "string" ? query.status : undefined;
+    const search = typeof query.search === "string" ? query.search.trim().toLowerCase() : undefined;
+
+    const rawSensors = await prisma.sensor.findMany({
+      where: {
+        network: { office: { organizationId } },
+        ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        network: {
+          include: {
+            office: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+
+    const items = rawSensors
+      .map((s) => {
+        const base = serialiseSensor(s);
+        return {
+          ...base,
+          network_name: s.network.name,
+          network_cidr: s.network.cidr,
+          office_name: s.network.office.name,
+          office_id: s.network.office.id,
+          troubleshooting: getTroubleshootingAdvice(base),
+        };
+      })
+      .filter((s) => (statusFilter ? s.status === statusFilter : true));
+
+    res.json({
+      total: items.length,
+      sensors: items,
+    });
+  }),
+);
+
+/** Single sensor detailed diagnostics & health. */
+fleetRouter.get(
+  "/sensors/:id",
+  route(async (req, res) => {
+    const sensor = await prisma.sensor.findFirst({
+      where: {
+        id: req.params.id,
+        network: { office: { organizationId: req.user!.organizationId } },
+      },
+      include: {
+        network: {
+          include: {
+            office: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!sensor) throw new HttpError(404, "No such sensor.");
+
+    const base = serialiseSensor(sensor);
+    res.json({
+      ...base,
+      network: { id: sensor.network.id, name: sensor.network.name, cidr: sensor.network.cidr },
+      office: { id: sensor.network.office.id, name: sensor.network.office.name },
+      troubleshooting: getTroubleshootingAdvice(base),
+    });
+  }),
+);
+
+/** Historical heartbeat observations for charts and audit logs. */
+fleetRouter.get(
+  "/sensors/:id/history",
+  route(async (req, res) => {
+    const sensor = await prisma.sensor.findFirst({
+      where: {
+        id: req.params.id,
+        network: { office: { organizationId: req.user!.organizationId } },
+      },
+      select: { id: true },
+    });
+    if (!sensor) throw new HttpError(404, "No such sensor.");
+
+    const heartbeats = await prisma.sensorHeartbeat.findMany({
+      where: { sensorId: sensor.id },
+      orderBy: { createdAt: "desc" },
+      take: 60,
+    });
+
+    res.json({
+      sensor_id: sensor.id,
+      history: heartbeats.map((h) => ({
+        id: h.id,
+        at: h.createdAt.toISOString(),
+        status: h.status,
+        capture_status: h.captureStatus,
+        packets_observed: Number(h.packetsObserved),
+        flows_extracted: Number(h.flowsExtracted),
+        pending_batches: h.pendingBatches,
+        queue_bytes: Number(h.queueBytes),
+        warning: h.warning,
       })),
     });
   }),
@@ -111,9 +277,6 @@ fleetRouter.post(
   "/offices/:id/networks",
   route(async (req, res) => {
     const body = validate(z.object({ name, cidr }), req.body);
-    // findFirst with the org in the where, not findUnique then compare: an id
-    // belonging to another tenant is indistinguishable from one that does not
-    // exist, which is what it should be.
     const office = await prisma.office.findFirst({
       where: { id: req.params.id, organizationId: req.user!.organizationId },
       select: { id: true },
@@ -143,7 +306,7 @@ fleetRouter.post(
     const key = newSensorKey();
     const sensor = await conflict(
       prisma.sensor.create({
-        data: { networkId: network.id, name: body.name, keyHash: key.hashed },
+        data: { networkId: network.id, name: body.name, keyHash: key.hashed, status: "pending" },
       }),
       "A sensor with that name already exists on this network.",
     );
@@ -151,10 +314,6 @@ fleetRouter.post(
   }),
 );
 
-/** Cascade does the rest: deleting an office takes its networks, their sensors
- *  and those sensors' detections. That is the intent — a closed office should
- *  not leave orphaned alerts nobody owns. deleteMany, because its `where`
- *  carries the tenant scope; delete() would need the check as a separate read. */
 fleetRouter.delete(
   "/offices/:id",
   route(async (req, res) => {
@@ -188,7 +347,7 @@ fleetRouter.delete(
         revokedAt: null,
         network: { office: { organizationId: req.user!.organizationId } },
       },
-      data: { revokedAt: new Date() },
+      data: { revokedAt: new Date(), status: "revoked" },
     });
     if (!count) throw new HttpError(404, "No such sensor.");
     res.status(204).end();

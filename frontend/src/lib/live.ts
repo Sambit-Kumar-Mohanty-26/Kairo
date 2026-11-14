@@ -12,6 +12,8 @@
 import { authed } from "./auth";
 import type { Detection, Office } from "./demo";
 
+export type SensorStatus = "online" | "degraded" | "offline" | "revoked" | "pending";
+
 export interface Sensor {
   id: string;
   name: string;
@@ -19,6 +21,18 @@ export interface Sensor {
   /** Reported within the last two minutes. Derived server-side, so one clock
    *  decides it rather than the browser's. */
   live: boolean;
+  status?: SensorStatus;
+  version?: string;
+  capture_status?: string;
+  interface?: string;
+  packets_observed?: number;
+  flows_extracted?: number;
+  pending_batches?: number;
+  queue_bytes?: number;
+  last_heartbeat_at?: string | null;
+  last_upload_at?: string | null;
+  recent_warning?: string | null;
+  troubleshooting?: string;
 }
 
 export interface FleetNetwork {
@@ -87,3 +101,24 @@ export const deleteNetwork = (id: string) =>
 /** Revoked, not deleted — the detections it already reported are evidence. */
 export const revokeSensor = (id: string) =>
   authed<void>(`/fleet/sensors/${id}`, { method: "DELETE" });
+
+export const getSensor = (sensorId: string) =>
+  authed<Sensor & { network: { id: string; name: string; cidr: string }; office: { id: string; name: string }; troubleshooting: string }>(
+    `/fleet/sensors/${sensorId}`,
+  );
+
+export const getSensorHistory = (sensorId: string) =>
+  authed<{
+    sensor_id: string;
+    history: Array<{
+      id: string;
+      at: string;
+      status: string;
+      capture_status?: string | null;
+      packets_observed: number;
+      flows_extracted: number;
+      pending_batches: number;
+      queue_bytes: number;
+      warning?: string | null;
+    }>;
+  }>(`/fleet/sensors/${sensorId}/history`);

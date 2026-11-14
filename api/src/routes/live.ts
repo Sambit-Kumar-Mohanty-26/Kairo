@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { HttpError, authGuard, route, validate } from "../middleware.js";
-import { isLive } from "../sensor.js";
+import { computeSensorHealth, isLive } from "../sensor.js";
 
 /* The console's read model for Live Mode. One request returns everything the
    dashboard renders, in the same shape the fixtures had — so switching modes
@@ -38,7 +38,14 @@ liveRouter.get(
               sensors: {
                 where: { revokedAt: null },
                 orderBy: { name: "asc" },
-                select: { name: true, lastSeenAt: true },
+                select: {
+                  name: true,
+                  lastSeenAt: true,
+                  revokedAt: true,
+                  pendingBatches: true,
+                  recentWarning: true,
+                  captureStatus: true,
+                },
               },
             },
           },
@@ -67,6 +74,8 @@ liveRouter.get(
 
     const sensors = offices.flatMap((o) => o.networks.flatMap((n) => n.sensors));
 
+    const healthStatuses = sensors.map((s) => computeSensorHealth(s));
+
     res.json({
       org: req.user!.organization.name,
       traffic: rollup._sum.flows ?? 0,
@@ -77,7 +86,9 @@ liveRouter.get(
         sensors: o.networks.flatMap((n) => n.sensors.map((s) => s.name)),
       })),
       sensors_total: sensors.length,
-      sensors_live: sensors.filter((s) => isLive(s.lastSeenAt)).length,
+      sensors_live: healthStatuses.filter((h) => h === "online" || h === "degraded").length,
+      sensors_degraded: healthStatuses.filter((h) => h === "degraded").length,
+      sensors_offline: healthStatuses.filter((h) => h === "offline" || h === "pending").length,
       detections: detections.map((d) => ({
         id: d.id,
         at: d.startedAt.getTime(),

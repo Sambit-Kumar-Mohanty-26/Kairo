@@ -3,7 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { MAX_FLOWS, classify } from "../model.js";
 import { rateLimit, route, validate } from "../middleware.js";
-import { sensorGuard } from "../sensor.js";
+import { computeSensorHealth, sensorGuard } from "../sensor.js";
 
 /* Where Live Mode actually happens. An agent on the customer's network turns
    packets into the 30 features the model was trained on and posts them here;
@@ -43,15 +43,84 @@ const body = z.object({
     .max(MAX_FLOWS, `Send at most ${MAX_FLOWS} flows per batch.`),
 });
 
+const heartbeatSchema = z.object({
+  version: z.string().max(32).optional(),
+  uptime_seconds: z.number().int().min(0).optional(),
+  interface: z.string().max(64).optional(),
+  capture_status: z.string().max(30).optional(),
+  packets_observed: z.number().int().min(0).optional(),
+  flows_extracted: z.number().int().min(0).optional(),
+  pending_batches: z.number().int().min(0).optional(),
+  queue_bytes: z.number().int().min(0).optional(),
+  warning: z.string().max(255).nullable().optional(),
+});
+
 const minuteOf = (d: Date) => new Date(Math.floor(d.getTime() / 60_000) * 60_000);
 
 /** What the agent prints on boot, so a wrong key fails in the first second
- *  rather than silently at the first flush. */
+ *  rather than silently at the first flush. Updates lastSeenAt so presence is recorded immediately. */
 ingestRouter.get(
   "/",
-  route((req, res) => {
+  route(async (req, res) => {
     const s = req.sensor!;
+    await prisma.sensor.update({
+      where: { id: s.id },
+      data: { lastSeenAt: new Date(), status: s.revokedAt ? "revoked" : "online" },
+    });
     res.json({ sensor: s.name, network: s.network.name, cidr: s.network.cidr });
+  }),
+);
+
+/** Operational heartbeat endpoint. Ingests health metrics from the sensor agent. */
+ingestRouter.post(
+  "/heartbeat",
+  rateLimit({ windowMs: 60_000, max: 120 }),
+  route(async (req, res) => {
+    const sensor = req.sensor!;
+    const data = validate(heartbeatSchema, req.body);
+    const now = new Date();
+
+    const computedStatus = computeSensorHealth({
+      revokedAt: sensor.revokedAt,
+      lastSeenAt: now,
+      pendingBatches: data.pending_batches,
+      recentWarning: data.warning,
+      captureStatus: data.capture_status,
+    });
+
+    await prisma.$transaction([
+      prisma.sensor.update({
+        where: { id: sensor.id },
+        data: {
+          lastSeenAt: now,
+          lastHeartbeatAt: now,
+          status: computedStatus,
+          version: data.version ?? sensor.version,
+          captureStatus: data.capture_status ?? sensor.captureStatus,
+          interfaceName: data.interface ?? sensor.interfaceName,
+          packetsObserved: data.packets_observed !== undefined ? BigInt(data.packets_observed) : sensor.packetsObserved,
+          flowsExtracted: data.flows_extracted !== undefined ? BigInt(data.flows_extracted) : sensor.flowsExtracted,
+          pendingBatches: data.pending_batches ?? sensor.pendingBatches,
+          queueBytes: data.queue_bytes !== undefined ? BigInt(data.queue_bytes) : sensor.queueBytes,
+          recentWarning: data.warning !== undefined ? data.warning : sensor.recentWarning,
+        },
+      }),
+      prisma.sensorHeartbeat.create({
+        data: {
+          sensorId: sensor.id,
+          createdAt: now,
+          status: computedStatus,
+          captureStatus: data.capture_status ?? null,
+          packetsObserved: BigInt(data.packets_observed ?? 0),
+          flowsExtracted: BigInt(data.flows_extracted ?? 0),
+          pendingBatches: data.pending_batches ?? 0,
+          queueBytes: BigInt(data.queue_bytes ?? 0),
+          warning: data.warning ?? null,
+        },
+      }),
+    ]);
+
+    res.json({ ok: true, status: computedStatus, acknowledged_at: now.toISOString() });
   }),
 );
 
@@ -62,10 +131,16 @@ ingestRouter.post(
     const { flows, batch_id } = validate(body, req.body);
     const sensor = req.sensor!;
 
-    // Answered, not reprocessed. The agent asked the same question twice
-    // because it never heard the first answer; saying yes again is correct and
-    // costs nothing, including an inference call.
+    // Check multi-batch idempotency table first, then fallback to lastBatchId
     if (sensor.lastBatchId === batch_id) {
+      res.json({ accepted: flows.length, attacks: 0, duplicate: true });
+      return;
+    }
+
+    const existingBatch = await prisma.ingestedBatch.findUnique({
+      where: { sensorId_batchId: { sensorId: sensor.id, batchId: batch_id } },
+    });
+    if (existingBatch) {
       res.json({ accepted: flows.length, attacks: 0, duplicate: true });
       return;
     }
@@ -110,9 +185,11 @@ ingestRouter.post(
       buckets.set(key, b);
     }
 
-    // One transaction, so a retry after a partial write cannot double-count:
-    // either the detections are deduplicated and the counters move once, or
-    // nothing happened and the agent's next attempt does all of it.
+    const now = new Date();
+
+    // One transaction: detections deduplicate on (sensorId, flowId),
+    // minute rollups increment atomically, IngestedBatch record is stored for idempotency,
+    // and sensor upload time/status are updated.
     await prisma.$transaction([
       prisma.detection.createMany({ data: detections, skipDuplicates: true }),
       ...[...buckets].map(
@@ -124,9 +201,22 @@ ingestRouter.post(
                 attacks = flow_rollups.attacks + EXCLUDED.attacks,
                 bytes   = flow_rollups.bytes   + EXCLUDED.bytes`,
       ),
+      prisma.ingestedBatch.create({
+        data: {
+          sensorId: sensor.id,
+          batchId: batch_id,
+          flowCount: flows.length,
+          createdAt: now,
+        },
+      }),
       prisma.sensor.update({
         where: { id: sensor.id },
-        data: { lastSeenAt: new Date(), lastBatchId: batch_id },
+        data: {
+          lastSeenAt: now,
+          lastUploadAt: now,
+          lastBatchId: batch_id,
+          status: "online",
+        },
       }),
     ]);
 

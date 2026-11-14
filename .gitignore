@@ -59,6 +59,14 @@ scratch/
 /notes
 *.tsbuildinfo
 
-# Local project documentation
-/docs/PROJECT-DOCUMENTATION.md
-/docs/AUDIT-REPORT.md
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.db
+*.db-wal
+*.db-shm
+
+# Documentation
+docs/
+/docs/
