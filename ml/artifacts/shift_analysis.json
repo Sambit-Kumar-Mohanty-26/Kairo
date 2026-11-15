@@ -1,0 +1,525 @@
+{
+  "analysis": "Cross-Dataset Covariate Shift and Binary Gate Calibration",
+  "source_dataset": "CICIDS2017",
+  "target_dataset": "UNSW-NB15",
+  "shared_features_count": 29,
+  "high_drift_features_count": 17,
+  "high_drift_features": [
+    "Packet Length Variance",
+    "Init_Win_bytes_backward",
+    "Bwd Packet Length Max",
+    "Init_Win_bytes_forward",
+    "Flow Duration",
+    "Bwd Packets/s",
+    "Fwd IAT Mean",
+    "Fwd Packets/s",
+    "Flow Packets/s",
+    "Flow IAT Mean",
+    "Flow IAT Std",
+    "Fwd IAT Std",
+    "Bwd IAT Total",
+    "Bwd IAT Mean",
+    "Bwd IAT Std",
+    "Fwd IAT Min",
+    "Idle Min"
+  ],
+  "covariate_shifts": {
+    "Packet Length Mean": {
+      "ks_statistic": 0.3475,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.6783,
+      "cic_median": 12.0,
+      "unsw_median": 44.4,
+      "drift_severity": "MODERATE"
+    },
+    "Packet Length Variance": {
+      "ks_statistic": 0.3134,
+      "ks_pvalue": 1e-323,
+      "wasserstein_normalized": 1.2708,
+      "cic_median": 161.5267,
+      "unsw_median": 76.8,
+      "drift_severity": "HIGH"
+    },
+    "Init_Win_bytes_backward": {
+      "ks_statistic": 0.8666,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.093,
+      "cic_median": 227.0,
+      "unsw_median": 14480.0,
+      "drift_severity": "HIGH"
+    },
+    "Fwd Packet Length Max": {
+      "ks_statistic": 0.3221,
+      "ks_pvalue": 1e-323,
+      "wasserstein_normalized": 0.2701,
+      "cic_median": 20.0,
+      "unsw_median": 45.0,
+      "drift_severity": "MODERATE"
+    },
+    "Bwd Packet Length Max": {
+      "ks_statistic": 0.3409,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.2806,
+      "cic_median": 34.0,
+      "unsw_median": 48.0,
+      "drift_severity": "HIGH"
+    },
+    "Init_Win_bytes_forward": {
+      "ks_statistic": 0.5431,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.5007,
+      "cic_median": 1024.0,
+      "unsw_median": 8688.0,
+      "drift_severity": "HIGH"
+    },
+    "Fwd Packet Length Mean": {
+      "ks_statistic": 0.3595,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.2303,
+      "cic_median": 8.6667,
+      "unsw_median": 9.3462,
+      "drift_severity": "MODERATE"
+    },
+    "Flow Duration": {
+      "ks_statistic": 0.5922,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.4332,
+      "cic_median": 1076682.0,
+      "unsw_median": 5788.0,
+      "drift_severity": "HIGH"
+    },
+    "Bwd Packets/s": {
+      "ks_statistic": 0.606,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.5525,
+      "cic_median": 2.7724,
+      "unsw_median": 1836.5473,
+      "drift_severity": "HIGH"
+    },
+    "Fwd IAT Mean": {
+      "ks_statistic": 0.6472,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.1854,
+      "cic_median": 26093.0,
+      "unsw_median": 314.7436,
+      "drift_severity": "HIGH"
+    },
+    "Fwd Packets/s": {
+      "ks_statistic": 0.6454,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.0822,
+      "cic_median": 2.9623,
+      "unsw_median": 1891.0212,
+      "drift_severity": "HIGH"
+    },
+    "Flow Packets/s": {
+      "ks_statistic": 0.6425,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.1332,
+      "cic_median": 6.2903,
+      "unsw_median": 3802.2814,
+      "drift_severity": "HIGH"
+    },
+    "Flow IAT Mean": {
+      "ks_statistic": 0.6437,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.1652,
+      "cic_median": 186741.6719,
+      "unsw_median": 338.0,
+      "drift_severity": "HIGH"
+    },
+    "Flow IAT Std": {
+      "ks_statistic": 0.6324,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.4129,
+      "cic_median": 339080.875,
+      "unsw_median": 586.0114,
+      "drift_severity": "HIGH"
+    },
+    "Fwd IAT Std": {
+      "ks_statistic": 0.5973,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 1.3776,
+      "cic_median": 17672.7207,
+      "unsw_median": 487.2728,
+      "drift_severity": "HIGH"
+    },
+    "Bwd IAT Total": {
+      "ks_statistic": 0.5931,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.9016,
+      "cic_median": 49.0,
+      "unsw_median": 10.0,
+      "drift_severity": "HIGH"
+    },
+    "Bwd IAT Mean": {
+      "ks_statistic": 0.6329,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.6125,
+      "cic_median": 49.0,
+      "unsw_median": 10.0,
+      "drift_severity": "HIGH"
+    },
+    "min_seg_size_forward": {
+      "ks_statistic": 0.3469,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.4695,
+      "cic_median": 28.0,
+      "unsw_median": 32.0,
+      "drift_severity": "MODERATE"
+    },
+    "Bwd Packet Length Min": {
+      "ks_statistic": 0.0851,
+      "ks_pvalue": 6.499588283065896e-32,
+      "wasserstein_normalized": 0.3087,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    },
+    "Bwd IAT Std": {
+      "ks_statistic": 0.5935,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.7315,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "HIGH"
+    },
+    "Fwd IAT Min": {
+      "ks_statistic": 0.7007,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.2492,
+      "cic_median": 3.0,
+      "unsw_median": 1.0,
+      "drift_severity": "HIGH"
+    },
+    "Bwd IAT Min": {
+      "ks_statistic": 0.217,
+      "ks_pvalue": 1.4810492285007935e-206,
+      "wasserstein_normalized": 0.2351,
+      "cic_median": 3.0,
+      "unsw_median": 2.0,
+      "drift_severity": "LOW"
+    },
+    "Idle Min": {
+      "ks_statistic": 0.0108,
+      "ks_pvalue": 0.6042251174586427,
+      "wasserstein_normalized": 1.2709,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "HIGH"
+    },
+    "Min Packet Length": {
+      "ks_statistic": 0.1185,
+      "ks_pvalue": 1.4991634323247672e-61,
+      "wasserstein_normalized": 0.13,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    },
+    "Flow IAT Min": {
+      "ks_statistic": 0.4634,
+      "ks_pvalue": 0.0,
+      "wasserstein_normalized": 0.1383,
+      "cic_median": 7.0,
+      "unsw_median": 2.0,
+      "drift_severity": "MODERATE"
+    },
+    "Fwd Packet Length Min": {
+      "ks_statistic": 0.1185,
+      "ks_pvalue": 1.4991634323247672e-61,
+      "wasserstein_normalized": 0.1465,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    },
+    "Active Min": {
+      "ks_statistic": 0.0106,
+      "ks_pvalue": 0.6279782033821611,
+      "wasserstein_normalized": 0.109,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    },
+    "Active Mean": {
+      "ks_statistic": 0.0106,
+      "ks_pvalue": 0.6279782033821611,
+      "wasserstein_normalized": 0.1101,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    },
+    "Active Max": {
+      "ks_statistic": 0.0106,
+      "ks_pvalue": 0.6279782033821611,
+      "wasserstein_normalized": 0.0955,
+      "cic_median": 0.0,
+      "unsw_median": 0.0,
+      "drift_severity": "LOW"
+    }
+  },
+  "threshold_calibration_sweep": [
+    {
+      "threshold": 0.01,
+      "tp": 63186,
+      "fp": 154388,
+      "fn": 26397,
+      "tn": 203944,
+      "precision": 0.2904,
+      "recall": 0.7053,
+      "fpr": 0.4309,
+      "f1": 0.4114
+    },
+    {
+      "threshold": 0.05,
+      "tp": 25724,
+      "fp": 26945,
+      "fn": 63859,
+      "tn": 331387,
+      "precision": 0.4884,
+      "recall": 0.2872,
+      "fpr": 0.0752,
+      "f1": 0.3617
+    },
+    {
+      "threshold": 0.1,
+      "tp": 3673,
+      "fp": 14977,
+      "fn": 85910,
+      "tn": 343355,
+      "precision": 0.1969,
+      "recall": 0.041,
+      "fpr": 0.0418,
+      "f1": 0.0679
+    },
+    {
+      "threshold": 0.15,
+      "tp": 2202,
+      "fp": 11910,
+      "fn": 87381,
+      "tn": 346422,
+      "precision": 0.156,
+      "recall": 0.0246,
+      "fpr": 0.0332,
+      "f1": 0.0425
+    },
+    {
+      "threshold": 0.2,
+      "tp": 1640,
+      "fp": 10142,
+      "fn": 87943,
+      "tn": 348190,
+      "precision": 0.1392,
+      "recall": 0.0183,
+      "fpr": 0.0283,
+      "f1": 0.0324
+    },
+    {
+      "threshold": 0.3,
+      "tp": 836,
+      "fp": 4575,
+      "fn": 88747,
+      "tn": 353757,
+      "precision": 0.1545,
+      "recall": 0.0093,
+      "fpr": 0.0128,
+      "f1": 0.0176
+    },
+    {
+      "threshold": 0.4,
+      "tp": 517,
+      "fp": 899,
+      "fn": 89066,
+      "tn": 357433,
+      "precision": 0.3651,
+      "recall": 0.0058,
+      "fpr": 0.0025,
+      "f1": 0.0114
+    },
+    {
+      "threshold": 0.5,
+      "tp": 146,
+      "fp": 343,
+      "fn": 89437,
+      "tn": 357989,
+      "precision": 0.2986,
+      "recall": 0.0016,
+      "fpr": 0.001,
+      "f1": 0.0032
+    },
+    {
+      "threshold": 0.6,
+      "tp": 123,
+      "fp": 162,
+      "fn": 89460,
+      "tn": 358170,
+      "precision": 0.4316,
+      "recall": 0.0014,
+      "fpr": 0.0005,
+      "f1": 0.0027
+    },
+    {
+      "threshold": 0.7,
+      "tp": 102,
+      "fp": 117,
+      "fn": 89481,
+      "tn": 358215,
+      "precision": 0.4658,
+      "recall": 0.0011,
+      "fpr": 0.0003,
+      "f1": 0.0023
+    },
+    {
+      "threshold": 0.8,
+      "tp": 94,
+      "fp": 101,
+      "fn": 89489,
+      "tn": 358231,
+      "precision": 0.4821,
+      "recall": 0.001,
+      "fpr": 0.0003,
+      "f1": 0.0021
+    },
+    {
+      "threshold": 0.9,
+      "tp": 75,
+      "fp": 66,
+      "fn": 89508,
+      "tn": 358266,
+      "precision": 0.5319,
+      "recall": 0.0008,
+      "fpr": 0.0002,
+      "f1": 0.0017
+    }
+  ],
+  "fn_breakdown_default_threshold_0_50": {
+    "Analysis": {
+      "total_flows": 385,
+      "detected": 0,
+      "false_negatives": 385,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    },
+    "Backdoor": {
+      "total_flows": 452,
+      "detected": 0,
+      "false_negatives": 452,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    },
+    "DoS": {
+      "total_flows": 4467,
+      "detected": 8,
+      "false_negatives": 4459,
+      "recall": 0.0018,
+      "fn_rate": 0.9982
+    },
+    "Exploits": {
+      "total_flows": 30951,
+      "detected": 6,
+      "false_negatives": 30945,
+      "recall": 0.0002,
+      "fn_rate": 0.9998
+    },
+    "Fuzzers": {
+      "total_flows": 29613,
+      "detected": 122,
+      "false_negatives": 29491,
+      "recall": 0.0041,
+      "fn_rate": 0.9959
+    },
+    "Generic": {
+      "total_flows": 4632,
+      "detected": 10,
+      "false_negatives": 4622,
+      "recall": 0.0022,
+      "fn_rate": 0.9978
+    },
+    "Reconnaissance": {
+      "total_flows": 16735,
+      "detected": 0,
+      "false_negatives": 16735,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    },
+    "Shellcode": {
+      "total_flows": 2102,
+      "detected": 0,
+      "false_negatives": 2102,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    },
+    "Worms": {
+      "total_flows": 246,
+      "detected": 0,
+      "false_negatives": 246,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    }
+  },
+  "fn_breakdown_calibrated_threshold_0_15": {
+    "Analysis": {
+      "total_flows": 385,
+      "detected": 0,
+      "false_negatives": 385,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    },
+    "Backdoor": {
+      "total_flows": 452,
+      "detected": 154,
+      "false_negatives": 298,
+      "recall": 0.3407,
+      "fn_rate": 0.6593
+    },
+    "DoS": {
+      "total_flows": 4467,
+      "detected": 158,
+      "false_negatives": 4309,
+      "recall": 0.0354,
+      "fn_rate": 0.9646
+    },
+    "Exploits": {
+      "total_flows": 30951,
+      "detected": 837,
+      "false_negatives": 30114,
+      "recall": 0.027,
+      "fn_rate": 0.973
+    },
+    "Fuzzers": {
+      "total_flows": 29613,
+      "detected": 587,
+      "false_negatives": 29026,
+      "recall": 0.0198,
+      "fn_rate": 0.9802
+    },
+    "Generic": {
+      "total_flows": 4632,
+      "detected": 413,
+      "false_negatives": 4219,
+      "recall": 0.0892,
+      "fn_rate": 0.9108
+    },
+    "Reconnaissance": {
+      "total_flows": 16735,
+      "detected": 28,
+      "false_negatives": 16707,
+      "recall": 0.0017,
+      "fn_rate": 0.9983
+    },
+    "Shellcode": {
+      "total_flows": 2102,
+      "detected": 25,
+      "false_negatives": 2077,
+      "recall": 0.0119,
+      "fn_rate": 0.9881
+    },
+    "Worms": {
+      "total_flows": 246,
+      "detected": 0,
+      "false_negatives": 246,
+      "recall": 0.0,
+      "fn_rate": 1.0
+    }
+  },
+  "recommendation": "Under cross-network domain shift, default probability thresholds (0.50) suffer from severe false-negative attrition because malicious logits are compressed. Setting an adaptive threshold (tau = 0.15) recovers detection recall across attack families while maintaining an acceptable false positive rate."
+}

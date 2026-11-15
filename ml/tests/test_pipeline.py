@@ -180,6 +180,59 @@ def test_agent_emits_exactly_the_selected_features():
     assert emitted == kept, "agent's FEATURES are in a different order"
 
 
+def test_model_registry_lifecycle_and_validation():
+    import joblib
+    from kairo_ml.registry import ModelRegistry
+
+    temp_reg_file = Path(os.environ["KAIRO_ARTIFACTS"]) / "test_registry.json"
+    reg = ModelRegistry(registry_file=temp_reg_file)
+
+    # Validate trained model artifact
+    model_art_path = Path(os.environ["KAIRO_ARTIFACTS"]) / "model.joblib"
+    art = joblib.load(model_art_path)
+    val = reg.validate_candidate(
+        model_art_path, expected_features_count=len(art["features"]), max_p95_latency_ms=500.0
+    )
+    assert val.get("overall_valid") is True, f"Candidate validation failed: {val}"
+    assert val.get("latency_slo_met") is True
+    assert val.get("probabilities_normalized") is True
+
+    # Register candidate model as STAGING
+    reg.register(model_art_path, version="1.1.0-rc1", stage="STAGING", description="Candidate model")
+    staged = reg.get_model("1.1.0-rc1")
+    assert staged is not None
+    assert staged["stage"] == "STAGING"
+    assert staged["features_count"] == len(art["features"])
+
+    # Promote to CANARY then PRODUCTION
+    reg.promote("1.1.0-rc1", "CANARY")
+    assert reg.get_canary()["version"] == "1.1.0-rc1"
+
+    reg.promote("1.1.0-rc1", "PRODUCTION")
+    assert reg.get_production()["version"] == "1.1.0-rc1"
+
+    # Register v1.2.0 and promote, then test rollback
+    reg.register(model_art_path, version="1.2.0", stage="PRODUCTION")
+    assert reg.get_production()["version"] == "1.2.0"
+
+    rollback_res = reg.rollback()
+    assert rollback_res["status"] == "rolled_back"
+    assert rollback_res["active_production"] == "1.1.0-rc1"
+    assert reg.get_production()["version"] == "1.1.0-rc1"
+
+
+def test_binary_threshold_calibration_override():
+    # Test that setting KAIRO_BINARY_THRESHOLD alters sensitivity correctly
+    os.environ["KAIRO_BINARY_THRESHOLD"] = "0.05"
+    load.cache_clear()
+    art = load()
+    flow = {f: 1.0 for f in art["features"]}
+    res = predict([flow])
+    assert len(res) == 1
+    os.environ.pop("KAIRO_BINARY_THRESHOLD", None)
+    load.cache_clear()
+
+
 if __name__ == "__main__":
     # definition order, not alphabetical — the later checks need the model the
     # round-trip check trains

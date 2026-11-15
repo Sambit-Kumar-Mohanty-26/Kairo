@@ -2,8 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { MAX_FLOWS, classify } from "../model.js";
-import { rateLimit, route, validate } from "../middleware.js";
+import { HttpError, rateLimit, route, validate } from "../middleware.js";
 import { computeSensorHealth, sensorGuard } from "../sensor.js";
+import { ingestQueue } from "../services/ingestQueue.js";
 
 /* Where Live Mode actually happens. An agent on the customer's network turns
    packets into the 30 features the model was trained on and posts them here;
@@ -124,6 +125,20 @@ ingestRouter.post(
   }),
 );
 
+ingestRouter.get(
+  "/queue/stats",
+  route(async (_req, res) => {
+    res.json(ingestQueue.getMetrics());
+  }),
+);
+
+ingestRouter.get(
+  "/queue/dead-letters",
+  route(async (_req, res) => {
+    res.json({ dead_letters: ingestQueue.getDeadLetters() });
+  }),
+);
+
 ingestRouter.post(
   "/flows",
   rateLimit({ windowMs: 60_000, max: 120 }),
@@ -145,81 +160,42 @@ ingestRouter.post(
       return;
     }
 
-    const verdicts = await classify(flows.map((f) => f.features));
-
-    // Only attacks become rows. Benign volume becomes a counter, which is the
-    // difference between a table that grows with attacks and one that grows
-    // with traffic — the same batch at a quiet site writes nothing but a
-    // single increment.
-    const detections = flows
-      .map((f, i) => ({ f, v: verdicts[i] }))
-      .filter(({ v }) => v.attack !== "Normal")
-      .map(({ f, v }) => ({
-        sensorId: sensor.id,
-        organizationId: sensor.network.office.organizationId,
-        flowId: f.id,
-        attack: v.attack,
-        confidence: v.confidence,
-        risk: v.risk,
-        severity: v.severity,
-        features: v.features,
-        modelTag: v.model,
-        sourceIp: f.source_ip,
-        sourcePort: f.source_port,
-        targetIp: f.target_ip,
-        targetPort: f.target_port,
-        protocol: f.protocol,
-        startedAt: f.started_at,
-      }));
-
-    // One row per minute touched, usually one. Raw, because the increment has
-    // to happen inside the conflict resolution: a read-then-write upsert loses
-    // counts when two batches land in the same millisecond.
-    const buckets = new Map<number, { flows: number; attacks: number; bytes: number }>();
-    for (const [i, f] of flows.entries()) {
-      const key = minuteOf(f.started_at).getTime();
-      const b = buckets.get(key) ?? { flows: 0, attacks: 0, bytes: 0 };
-      b.flows += 1;
-      b.bytes += f.bytes;
-      if (verdicts[i].attack !== "Normal") b.attacks += 1;
-      buckets.set(key, b);
+    // Check Backpressure
+    if (!ingestQueue.canEnqueue()) {
+      res.set("Retry-After", "5");
+      throw new HttpError(429, "Ingestion queue overloaded. Edge backpressure active; retry shortly.");
     }
 
-    const now = new Date();
+    const isAsync = req.query.async === "true" || req.headers["x-kairo-async"] === "true";
 
-    // One transaction: detections deduplicate on (sensorId, flowId),
-    // minute rollups increment atomically, IngestedBatch record is stored for idempotency,
-    // and sensor upload time/status are updated.
-    await prisma.$transaction([
-      prisma.detection.createMany({ data: detections, skipDuplicates: true }),
-      ...[...buckets].map(
-        ([ms, b]) => prisma.$executeRaw`
-          INSERT INTO flow_rollups (id, sensor_id, minute, flows, attacks, bytes)
-          VALUES (gen_random_uuid(), ${sensor.id}::uuid, ${new Date(ms)}, ${b.flows}, ${b.attacks}, ${b.bytes})
-          ON CONFLICT (sensor_id, minute) DO UPDATE
-            SET flows   = flow_rollups.flows   + EXCLUDED.flows,
-                attacks = flow_rollups.attacks + EXCLUDED.attacks,
-                bytes   = flow_rollups.bytes   + EXCLUDED.bytes`,
-      ),
-      prisma.ingestedBatch.create({
-        data: {
-          sensorId: sensor.id,
-          batchId: batch_id,
-          flowCount: flows.length,
-          createdAt: now,
-        },
-      }),
-      prisma.sensor.update({
-        where: { id: sensor.id },
-        data: {
-          lastSeenAt: now,
-          lastUploadAt: now,
-          lastBatchId: batch_id,
-          status: "online",
-        },
-      }),
-    ]);
+    if (isAsync) {
+      const job = ingestQueue.enqueue({
+        sensorId: sensor.id,
+        organizationId: sensor.network.office.organizationId,
+        batchId: batch_id,
+        flows,
+      });
+      res.status(202).json({
+        accepted: flows.length,
+        status: "queued",
+        job_id: job.id,
+        queue_depth: ingestQueue.getMetrics().queueDepth,
+      });
+      return;
+    }
 
-    res.json({ accepted: flows.length, attacks: detections.length });
+    // Synchronous execution using worker execution engine
+    const result = await ingestQueue.executeJob({
+      id: `sync_${Date.now()}`,
+      sensorId: sensor.id,
+      organizationId: sensor.network.office.organizationId,
+      batchId: batch_id,
+      flows,
+      enqueuedAt: new Date(),
+      retries: 0,
+      maxRetries: 0,
+    });
+
+    res.json(result);
   }),
 );

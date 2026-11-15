@@ -1,0 +1,109 @@
+{
+  "schema_version": "1.0",
+  "active_production": "1.0.0",
+  "previous_production": null,
+  "canary_version": null,
+  "models": {
+    "1.0.0": {
+      "version": "1.0.0",
+      "stage": "PRODUCTION",
+      "sha256": "c4dfe073ea6f923c520b666371495bd03d263f66779d2c7d71fc6b7c488ee9b9",
+      "artifact_file": "model.joblib",
+      "features_count": 30,
+      "features": [
+        "Packet Length Mean",
+        "Packet Length Variance",
+        "Init_Win_bytes_backward",
+        "Fwd Packet Length Max",
+        "Bwd Packet Length Max",
+        "Init_Win_bytes_forward",
+        "Fwd Packet Length Mean",
+        "Flow Duration",
+        "Destination Port",
+        "Bwd Packets/s",
+        "Fwd IAT Mean",
+        "Fwd Packets/s",
+        "Flow Packets/s",
+        "Flow IAT Mean",
+        "Flow IAT Std",
+        "Fwd IAT Std",
+        "Bwd IAT Total",
+        "Bwd IAT Mean",
+        "min_seg_size_forward",
+        "Bwd Packet Length Min",
+        "Bwd IAT Std",
+        "Fwd IAT Min",
+        "Bwd IAT Min",
+        "Idle Min",
+        "Min Packet Length",
+        "Flow IAT Min",
+        "Fwd Packet Length Min",
+        "Active Min",
+        "Active Mean",
+        "Active Max"
+      ],
+      "metrics": {
+        "tag": "v1.0-cascade",
+        "trainedAt": "2026-09-17",
+        "dataset": "CICIDS2017 - 253,240 flows",
+        "accuracy": 0.999,
+        "macroF1": 0.9945,
+        "trainSeconds": 18.1,
+        "deployed": "Two-Stage Cascade",
+        "classes": [
+          {
+            "cls": "Normal",
+            "precision": 0.9996,
+            "recall": 0.9977,
+            "f1": 0.9986,
+            "support": 12000
+          },
+          {
+            "cls": "DDoS",
+            "precision": 0.9999,
+            "recall": 0.9999,
+            "f1": 0.9999,
+            "support": 12000
+          },
+          {
+            "cls": "DoS",
+            "precision": 0.9985,
+            "recall": 0.9995,
+            "f1": 0.999,
+            "support": 12000
+          },
+          {
+            "cls": "Port Scan",
+            "precision": 0.9994,
+            "recall": 0.9992,
+            "f1": 0.9993,
+            "support": 12000
+          },
+          {
+            "cls": "Brute Force",
+            "precision": 0.9995,
+            "recall": 0.9995,
+            "f1": 0.9995,
+            "support": 1830
+          },
+          {
+            "cls": "Web Attack",
+            "precision": 0.9884,
+            "recall": 0.9907,
+            "f1": 0.9895,
+            "support": 429
+          },
+          {
+            "cls": "Botnet",
+            "precision": 0.9602,
+            "recall": 0.9923,
+            "f1": 0.976,
+            "support": 389
+          }
+        ]
+      },
+      "registered_at": "2026-11-15T23:43:13.676428+00:00",
+      "description": "Base two-stage cascade model with SHA-256 verification"
+    }
+  }
+}

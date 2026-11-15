@@ -13,6 +13,7 @@ Accelerated Engine:
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Any, Mapping
 
@@ -144,7 +145,11 @@ def predict(flows: list[Mapping[str, Any]]) -> list[dict]:
     if gate_b is not None and namer_b is not None:
         p_gate = gate_b.inplace_predict(x_scaled)
         p_attack = p_gate[:, 1] if p_gate.ndim == 2 else p_gate
-        thresh = art["_cascade_thresh"]
+        
+        # Adaptive thresholding: respects KAIRO_BINARY_THRESHOLD or default model threshold
+        thresh = float(
+            os.getenv("KAIRO_BINARY_THRESHOLD", str(art.get("_cascade_thresh", 0.5)))
+        )
         passed = p_attack > thresh
         cols = art["_cascade_cols"]
 
