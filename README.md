@@ -61,34 +61,33 @@ Kairo takes a fundamentally different approach:
 Kairo is built as an edge-to-cloud observability fabric comprising a distributed capture daemon, an Express/TypeScript API gateway, an accelerated ML inference engine, and a Next.js operator dashboard.
 
 ```mermaid
-flowchart TD
-    subgraph Edge["Customer Edge Network"]
-        direction TB
-        Traffic["Raw Network Traffic\n(Mirrored TAP / Interface)"] --> Sniffer["FastPacketEngine / AsyncSniffer\n(Zero-copy header parsing)"]
-        Sniffer --> FlowGen["Flow Engine\n(Bidirectional 30-feature extraction)"]
-        FlowGen --> WAL["Durable SQLite WAL Queue\n(Thread-safe buffer & backoff)"]
+graph LR
+    subgraph SENSOR["1. EDGE SENSOR (Linux Daemon)"]
+        direction LR
+        TAP["Network TAP / IF"] --> CAP["Packet Engine\n(Raw Sockets)"]
+        CAP --> FLOW["Flow Engine\n(30 Features)"]
+        FLOW --> WAL[("SQLite Buffer\n(WAL Queue)")]
     end
 
-    subgraph Platform["Kairo Core Services"]
-        direction TB
-        WAL -- "HTTPS + Bearer Key\n(Gzip Compressed Batches)" --> Ingest["Express API Gateway\n(Multi-tenant auth & idempotency)"]
-        Ingest --> DB[("PostgreSQL\n(Neon DB)")]
-        Ingest -- "Internal REST / Vectorized" --> ML["ML Inference Service\n(Two-Stage Cascade Engine)"]
-        ML -- "Classifications + Evidence" --> Ingest
+    subgraph CORE["2. CORE PLATFORM"]
+        direction LR
+        API["Express Gateway\n(Auth & Ingest)"]
+        ML["ML Cascade\n(XGBoost Engine)"]
+        DB[("PostgreSQL\n(Neon DB)")]
+        API <--> ML
+        API <--> DB
     end
 
-    subgraph Console["Security Operations"]
-        direction TB
-        Ingest --> UI["Kairo Next.js Console\n(Threat timeline, health drawer, triage)"]
-        UI -- "Triage Audit Feedback\n(Resolved / False Positive)" --> DB
+    subgraph OPS["3. OPERATOR CONSOLE"]
+        direction LR
+        DASH["Console UI\n(Next.js 16)"]
+        TRIAGE["Threat Triage\n& Diagnostics"]
+        DASH --> TRIAGE
     end
 
-    classDef edge fill:#121814,stroke:#0A7A5D,stroke-width:1.5px,color:#FFFFEB;
-    classDef platform fill:#151619,stroke:#3B82F6,stroke-width:1.5px,color:#FFFFEB;
-    classDef console fill:#1B1519,stroke:#8B5CF6,stroke-width:1.5px,color:#FFFFEB;
-    class Edge edge;
-    class Platform platform;
-    class Console console;
+    WAL -->|"HTTPS / Gzip"| API
+    API -->|"Telemetry"| DASH
+    TRIAGE -.->|"Labels"| DB
 ```
 
 ---
