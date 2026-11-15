@@ -34,6 +34,28 @@ def load() -> dict:
         raise FileNotFoundError(
             f"No model at {MODEL_PATH}. Run: python -m kairo_ml.train --synthetic"
         )
+
+    # Cryptographic integrity verification before deserialization
+    import hashlib
+    import os
+
+    expected_sha = os.getenv("KAIRO_MODEL_SHA256", "").strip()
+    sha_file = MODEL_PATH.with_suffix(".sha256")
+    if not expected_sha and sha_file.exists():
+        expected_sha = sha_file.read_text(encoding="utf-8").strip()
+
+    if expected_sha:
+        digest = hashlib.sha256()
+        with MODEL_PATH.open("rb") as f:
+            while chunk := f.read(1 << 20):
+                digest.update(chunk)
+        actual_sha = digest.hexdigest()
+        if actual_sha.lower() != expected_sha.lower():
+            raise RuntimeError(
+                f"Model integrity verification failed: SHA-256 hash mismatch. "
+                f"Expected {expected_sha[:16]}..., got {actual_sha[:16]}..."
+            )
+
     art = joblib.load(MODEL_PATH)
 
     # Pre-cache scaler statistics for zero-overhead vectorization

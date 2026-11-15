@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { HttpError, authGuard, route, validate } from "../middleware.js";
+import { HttpError, authGuard, requireRole, route, validate } from "../middleware.js";
 import { computeSensorHealth, isLive, newSensorKey } from "../sensor.js";
 
 /* Offices, networks and sensors — the estate the console draws and the agent
@@ -239,6 +239,7 @@ fleetRouter.get(
  *  and changing an identifier to match a display name is how links break. */
 fleetRouter.patch(
   "/org",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const body = validate(z.object({ name }), req.body);
     const org = await prisma.organization.update({
@@ -261,6 +262,7 @@ function conflict<T>(promise: Promise<T>, message: string): Promise<T> {
 
 fleetRouter.post(
   "/offices",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const body = validate(z.object({ name }), req.body);
     const office = await conflict(
@@ -275,6 +277,7 @@ fleetRouter.post(
 
 fleetRouter.post(
   "/offices/:id/networks",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const body = validate(z.object({ name, cidr }), req.body);
     const office = await prisma.office.findFirst({
@@ -295,6 +298,7 @@ fleetRouter.post(
  *  hash is stored, so a lost key is replaced, not recovered. */
 fleetRouter.post(
   "/networks/:id/sensors",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const body = validate(z.object({ name }), req.body);
     const network = await prisma.network.findFirst({
@@ -316,6 +320,7 @@ fleetRouter.post(
 
 fleetRouter.delete(
   "/offices/:id",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const { count } = await prisma.office.deleteMany({
       where: { id: req.params.id, organizationId: req.user!.organizationId },
@@ -327,6 +332,7 @@ fleetRouter.delete(
 
 fleetRouter.delete(
   "/networks/:id",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const { count } = await prisma.network.deleteMany({
       where: { id: req.params.id, office: { organizationId: req.user!.organizationId } },
@@ -340,6 +346,7 @@ fleetRouter.delete(
  *  detections it already reported are evidence and stay. */
 fleetRouter.delete(
   "/sensors/:id",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const { count } = await prisma.sensor.updateMany({
       where: {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { HttpError, authGuard, route, validate } from "../middleware.js";
+import { HttpError, authGuard, requireRole, route, validate } from "../middleware.js";
 import { computeSensorHealth, isLive } from "../sensor.js";
 
 /* The console's read model for Live Mode. One request returns everything the
@@ -112,6 +112,7 @@ liveRouter.get(
  *  part of the training data, not UI history. */
 liveRouter.patch(
   "/detections/:id",
+  requireRole("owner", "admin", "analyst"),
   route(async (req, res) => {
     const { status } = validate(z.object({ status: z.enum(STATUSES) }), req.body);
 

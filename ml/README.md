@@ -68,8 +68,8 @@ ensemble on what passes. The landing page prints both rows and the interval.
 ## Deploy
 
 `service.py` is the only thing that runs in production here: FastAPI, three
-routes, no database and no auth of its own — it sits behind the Express API,
-which has both.
+routes, authenticated via `KAIRO_ML_TOKEN` bearer tokens with explicit origin
+restriction. Sits behind the Express API with mutual service-to-service validation.
 
 ```sh
 PYTHONPATH=src uvicorn kairo_ml.service:app --port 8001   # 8000 is the API's

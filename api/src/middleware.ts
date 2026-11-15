@@ -95,6 +95,23 @@ export const authGuard = route(async (req, _res, next) => {
   next();
 });
 
+/** Role-Based Access Control (RBAC) guard.
+ *  Validates that the authenticated user's role is in the permitted set.
+ *  'owner' role possesses universal superuser administrative privileges. */
+export function requireRole(...allowedRoles: string[]): RequestHandler {
+  return (req, _res, next) => {
+    if (!req.user) {
+      throw new HttpError(401, "Not signed in.");
+    }
+    const userRole = (req.user.role || "viewer").toLowerCase();
+    if (userRole === "owner" || allowedRoles.map((r) => r.toLowerCase()).includes(userRole)) {
+      next();
+      return;
+    }
+    throw new HttpError(403, `Access denied. Requires one of roles: [${allowedRoles.join(", ")}].`);
+  };
+}
+
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof HttpError) {
     res.status(err.status).json({ detail: err.message });

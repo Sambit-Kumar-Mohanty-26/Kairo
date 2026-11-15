@@ -1,8 +1,8 @@
 """The inference service the Express API talks to.
 
 Python stays on this side of the line: training, evaluation, inference. Every
-other endpoint in the product is Express. This service holds no database and
-no auth of its own — it sits behind the API, which already has both.
+other endpoint in the product is Express. Secured via KAIRO_ML_TOKEN bearer authentication
+and explicit ALLOWED_ORIGINS CORS isolation. Dedicated service-to-service boundary.
 
     uvicorn kairo_ml.service:app --reload --port 8000
 """
