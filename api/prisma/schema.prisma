@@ -216,6 +216,7 @@ model Detection {
 
   @@unique([sensorId, flowId])
   @@index([organizationId, createdAt])
+  @@index([organizationId, startedAt])
   @@index([organizationId, status])
   @@map("detections")
 }

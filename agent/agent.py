@@ -16,6 +16,7 @@ Key Reliability Features:
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import logging
 import os
@@ -58,13 +59,21 @@ class Sender:
         self.base = base.rstrip("/")
         self.key = key
 
-    def _request(self, path: str, method: str = "GET", payload: dict | None = None) -> tuple[int, dict, str]:
-        body = json.dumps(payload).encode() if payload is not None else None
+    def _request(self, path: str, method: str = "GET", payload: dict | None = None, compress: bool = True) -> tuple[int, dict, str]:
+        headers = {"authorization": f"Bearer {self.key}", "content-type": "application/json"}
+        body = None
+        if payload is not None:
+            raw = json.dumps(payload).encode("utf-8")
+            if compress and len(raw) > 512:
+                body = gzip.compress(raw)
+                headers["content-encoding"] = "gzip"
+            else:
+                body = raw
         req = urllib.request.Request(
             f"{self.base}{path}",
             data=body,
             method=method,
-            headers={"authorization": f"Bearer {self.key}", "content-type": "application/json"},
+            headers=headers,
         )
         try:
             with urllib.request.urlopen(req, timeout=30) as r:
