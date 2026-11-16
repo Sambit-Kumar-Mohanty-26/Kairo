@@ -67,6 +67,9 @@ __pycache__/
 *.db-wal
 *.db-shm
 
-# Documentation
+# Documentation and editor settings
 docs/
-/docs/
+.vscode/
+
+
+

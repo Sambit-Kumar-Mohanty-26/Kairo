@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { MAX_FLOWS, classify } from "../model.js";
+import { MAX_FLOWS } from "../model.js";
 import { HttpError, rateLimit, route, validate } from "../middleware.js";
 import { computeSensorHealth, sensorGuard } from "../sensor.js";
 import { ingestQueue } from "../services/ingestQueue.js";

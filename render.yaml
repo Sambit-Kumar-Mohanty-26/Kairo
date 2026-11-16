@@ -49,7 +49,7 @@ services:
     # KAIRO_MODEL_URL and KAIRO_MODEL_SHA256 identify a trusted artifact; the
     # step fails the build if the checksum is missing or does not match.
     buildCommand: pip install -r requirements.txt && python -m kairo_ml.fetch_model
-    startCommand: uvicorn kairo_ml.service:app --host 0.0.0.0 --port $PORT
+    startCommand: uvicorn kairo_ml.service:app --host 0.0.0.0 --port $PORT --timeout-graceful-shutdown 5
     # /health reports whether a model is loadable, not merely that Python is
     # up, so a modelless instance never takes traffic.
     healthCheckPath: /health
@@ -58,6 +58,14 @@ services:
         value: src
       - key: PYTHON_VERSION # numpy 2.x and xgboost 3.x wheels; trained on this
         value: 3.13.1
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: OPENBLAS_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
       - key: KAIRO_MODEL_URL
         sync: false
       - key: KAIRO_MODEL_SHA256

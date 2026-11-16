@@ -39,6 +39,8 @@ Kairo takes a fundamentally different approach:
 * **Explainable Detection:** Replaces arbitrary risk scores with rigorous statistical evidence. Every alert includes the top-5 weighted features that caused the detection.
 * **Hierarchical Cascade:** A two-stage classifier filters benign traffic at wire speed, spending compute only on suspicious flows.
 * **Durable Edge Operations:** Sensors buffer telemetry locally in an SQLite Write-Ahead Log (WAL), surviving network cuts and server restarts with zero packet loss.
+* **Resilient Distributed Ingestion:** Bounded asynchronous worker pool with edge backpressure shedding (HTTP 429), circuit breaking, and dead-letter queue (DLQ) isolation.
+* **Cryptographic Model Governance:** SHA-256 pre-deserialization validation, versioned model lifecycle registry, automated candidate SLO gates, and instant atomic rollback.
 * **Operator Feedback Loop:** Analyst triage actions (marking alerts as resolved or false positives) automatically generate cryptographically verified training labels for continuous model refinement.
 
 ---
@@ -72,22 +74,24 @@ graph LR
     subgraph CORE["2. CORE PLATFORM"]
         direction LR
         API["Express Gateway\n(Auth & Ingest)"]
-        ML["ML Cascade\n(XGBoost Engine)"]
+        QUEUE["Async Queue\n& Circuit Breaker"]
+        ML["ML Cascade\n& Model Registry"]
         DB[("PostgreSQL\n(Neon DB)")]
-        API <--> ML
-        API <--> DB
+        API --> QUEUE
+        QUEUE <--> ML
+        QUEUE <--> DB
     end
 
     subgraph OPS["3. OPERATOR CONSOLE"]
         direction LR
         DASH["Console UI\n(Next.js 16)"]
-        TRIAGE["Threat Triage\n& Diagnostics"]
+        TRIAGE["Threat Triage\n& RBAC Guard"]
         DASH --> TRIAGE
     end
 
     WAL -->|"HTTPS / Gzip"| API
     API -->|"Telemetry"| DASH
-    TRIAGE -.->|"Labels"| DB
+    TRIAGE -.->|"Feedback"| DB
 ```
 
 ---
@@ -153,9 +157,9 @@ Kairo is built from the ground up for strict zero-trust and compliance-driven en
 | Directory | Package | Language / Stack | Purpose |
 | :--- | :--- | :--- | :--- |
 | [`agent/`](./agent) | **Kairo Sensor Daemon** | Python 3.11+ / Scapy / SQLite | Packet capture, flow reconstruction, local WAL buffer, and authenticated batch dispatch |
-| [`api/`](./api) | **Core API Gateway** | TypeScript / Express / Prisma | Multi-tenant authentication, sensor fleet management, ingestion idempotency, and audit logging |
+| [`api/`](./api) | **Core API Gateway** | TypeScript / Express / Prisma | Multi-tenant auth, RBAC middleware, async worker queue, circuit breaker, and audit logging |
 | [`frontend/`](./frontend) | **Operator Dashboard** | Next.js 16 / React 19 / Tailwind | Real-time threat timeline, sensor fleet health drawer, attack analysis, and dark mode interface |
-| [`ml/`](./ml) | **Inference Engine** | FastAPI / XGBoost / NumPy | High-throughput two-stage cascade model, statistical evidence extraction, and benchmark harness |
+| [`ml/`](./ml) | **Inference Engine** | FastAPI / XGBoost / NumPy | Two-stage cascade, SHA-256 integrity, model lifecycle registry, and shift calibration harness |
 
 ---
 
@@ -237,8 +241,11 @@ Engine benchmarks executed on standard commodity x86 hardware:
 Kairo maintains automated test suites across every layer of the architecture:
 
 ```bash
-# Test machine learning pipeline and cascade attribution
+# Test machine learning pipeline, registry, and cascade attribution
 cd ml && python -m pytest tests/
+
+# Run cross-network covariate shift and threshold calibration analysis
+cd ml && python -m kairo_ml.shift_analysis
 
 # Test sensor SQLite queue, backoff logic, and recovery
 cd ../agent && python test_queue.py

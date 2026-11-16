@@ -44,9 +44,25 @@ def require_ml_auth(credentials: HTTPAuthorizationCredentials | None = Depends(b
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "HEAD"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def preload_model() -> None:
+    """Pre-warm model into cache during startup so health checks answer instantly."""
+    try:
+        load()
+    except Exception:
+        pass
+
+
+@app.get("/")
+@app.head("/")
+def root() -> dict:
+    """Render and health prober root endpoint."""
+    return {"status": "ok", "service": "kairo-ml"}
 
 
 class PredictRequest(BaseModel):
@@ -63,12 +79,17 @@ class ValidateRequest(BaseModel):
 
 
 @app.get("/health")
+@app.head("/health")
 def health() -> dict:
     """Cheap and honest: reports whether a model is actually loadable."""
     try:
         art = load()
-        reg = get_registry()
-        prod = reg.get_production()
+        prod = None
+        try:
+            reg = get_registry()
+            prod = reg.get_production()
+        except Exception:
+            pass
         return {
             "ok": True,
             "model": art["metrics"]["tag"],
@@ -76,7 +97,7 @@ def health() -> dict:
             "sha256": prod.get("sha256") if prod else None,
             "classes": art["classes"],
         }
-    except FileNotFoundError as e:
+    except Exception as e:
         return {"ok": False, "error": str(e)}
 
 
