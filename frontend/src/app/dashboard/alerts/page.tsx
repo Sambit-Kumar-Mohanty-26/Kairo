@@ -168,7 +168,13 @@ export default function AlertsPage() {
                 <p className="mt-5 pt-4 border-t border-white/[0.08] font-mono text-[10.5px] text-[#8A8E86] leading-relaxed">
                   {selected.source} → {selected.target}
                   <br />
-                  {PROFILES[selected.attack].evidence}
+                  {selected.features && selected.features.length > 0
+                    ? "Key Telemetry Signals: " +
+                      selected.features
+                        .slice(0, 3)
+                        .map((f) => `${f.name} (${(f.weight * 100).toFixed(0)}%)`)
+                        .join(" · ")
+                    : (PROFILES[selected.attack]?.evidence ?? "Nominal flow statistics")}
                 </p>
               </div>
 

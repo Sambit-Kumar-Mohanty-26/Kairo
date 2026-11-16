@@ -26,28 +26,28 @@ CRITICAL_AT = 88
 WARNING_AT = 70
 
 
-@lru_cache(maxsize=1)
-def load() -> dict:
-    """Load the artifact once per process and precalculate acceleration structures."""
+@lru_cache(maxsize=8)
+def _load_cached(path_str: str) -> dict:
+    """Load an artifact and precalculate acceleration structures."""
+    import hashlib
     import joblib
+    from pathlib import Path
 
-    if not MODEL_PATH.exists():
+    path = Path(path_str)
+    if not path.exists():
         raise FileNotFoundError(
-            f"No model at {MODEL_PATH}. Run: python -m kairo_ml.train --synthetic"
+            f"No model at {path}. Run: python -m kairo_ml.train --synthetic"
         )
 
     # Cryptographic integrity verification before deserialization
-    import hashlib
-    import os
-
     expected_sha = os.getenv("KAIRO_MODEL_SHA256", "").strip()
-    sha_file = MODEL_PATH.with_suffix(".sha256")
+    sha_file = path.with_suffix(".sha256")
     if not expected_sha and sha_file.exists():
         expected_sha = sha_file.read_text(encoding="utf-8").strip()
 
     if expected_sha:
         digest = hashlib.sha256()
-        with MODEL_PATH.open("rb") as f:
+        with path.open("rb") as f:
             while chunk := f.read(1 << 20):
                 digest.update(chunk)
         actual_sha = digest.hexdigest()
@@ -57,7 +57,7 @@ def load() -> dict:
                 f"Expected {expected_sha[:16]}..., got {actual_sha[:16]}..."
             )
 
-    art = joblib.load(MODEL_PATH)
+    art = joblib.load(path)
 
     # Pre-cache scaler statistics for zero-overhead vectorization
     model = art["model"]
@@ -103,6 +103,15 @@ def load() -> dict:
     return art
 
 
+def load(model_path: Any = None) -> dict:
+    """Load model artifact from default MODEL_PATH or custom Path."""
+    p = str(model_path if model_path is not None else MODEL_PATH)
+    return _load_cached(p)
+
+
+load.cache_clear = _load_cached.cache_clear  # type: ignore[attr-defined]
+
+
 def severity_of(risk: int) -> str:
     return "critical" if risk >= CRITICAL_AT else "warning" if risk >= WARNING_AT else "normal"
 
@@ -121,14 +130,16 @@ def _matrix(flows: list[Mapping[str, Any]], features: list[str]) -> np.ndarray:
     return np.asarray([[float(f[c]) for c in features] for f in flows], dtype=np.float32)
 
 
-def predict(flows: list[Mapping[str, Any]]) -> list[dict]:
-    """Classify flows with FAANG-grade optimized vectorization.
+def predict(
+    flows: list[Mapping[str, Any]], model_art: dict | None = None
+) -> list[dict]:
+    """Classify flows with high-throughput vectorized SIMD execution.
 
     One dict per flow, in the console's Detection shape.
     """
     if not flows:
         return []
-    art = load()
+    art = model_art if model_art is not None else load()
     features = art["features"]
     classes = art["classes"]
     tag = art["metrics"]["tag"]

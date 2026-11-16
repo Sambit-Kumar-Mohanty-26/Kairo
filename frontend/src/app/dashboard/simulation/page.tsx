@@ -12,7 +12,7 @@ import { PROFILES, SCENARIOS, type Detection, type Scenario } from "@/lib/demo";
 const PIPELINE = [
   { label: "Flow ingestion", detail: "held-out labelled rows", ms: 620 },
   { label: "Preprocessing", detail: "training-only scaler · selected features", ms: 560 },
-  { label: "ML model", detail: "weighted soft voting ensemble", ms: 900 },
+  { label: "ML model", detail: "two-stage cascade (XGBoost + Stacking)", ms: 900 },
   { label: "Detection", detail: "class · confidence", ms: 420 },
   { label: "Database", detail: "written to detection store", ms: 360 },
   { label: "Dashboard", detail: "counters, dial and timeline update", ms: 420 },
@@ -219,7 +219,13 @@ export default function SimulationPage() {
               <div className="mt-5 pt-4 border-t border-white/[0.08] font-mono text-[10.5px] text-[#8A8E86] leading-relaxed">
                 {verdict.source} → {verdict.target}
                 <br />
-                {PROFILES[verdict.attack].evidence}
+                {verdict.features && verdict.features.length > 0
+                  ? "Key Telemetry Signals: " +
+                    verdict.features
+                      .slice(0, 3)
+                      .map((f) => `${f.name} (${(f.weight * 100).toFixed(0)}%)`)
+                      .join(" · ")
+                  : (PROFILES[verdict.attack]?.evidence ?? "Nominal flow statistics")}
               </div>
               <Link
                 href="/dashboard/threats"

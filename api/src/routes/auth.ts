@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Response } from "express";
 import { z } from "zod";
 import { config } from "../config.js";
 import { prisma } from "../db.js";
@@ -16,6 +16,27 @@ import { type UserWithOrg, serialiseUser } from "../serialise.js";
 
 export const authRouter = Router();
 
+const REFRESH_COOKIE = "kairo_refresh_token";
+
+function setRefreshCookie(res: Response, token: string) {
+  res.cookie(REFRESH_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/auth",
+    maxAge: config.refreshTokenDays * 86_400_000,
+  });
+}
+
+function clearRefreshCookie(res: Response) {
+  res.clearCookie(REFRESH_COOKIE, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/auth",
+  });
+}
+
 const password = z.string().min(8, "Password must be at least 8 characters.").max(128);
 const email = z.string().email("Enter a valid email address.");
 
@@ -26,7 +47,7 @@ const registerIn = z.object({
   organization_name: z.string().max(120).optional(),
 });
 const loginIn = z.object({ email, password: z.string() });
-const refreshIn = z.object({ refresh_token: z.string() });
+const refreshIn = z.object({ refresh_token: z.string().optional() });
 const forgotIn = z.object({ email });
 const resetIn = z.object({ token: z.string(), password });
 
@@ -81,7 +102,9 @@ authRouter.post(
       include: { organization: true },
     });
 
-    res.status(201).json(await issueTokens(user));
+    const tokens = await issueTokens(user);
+    setRefreshCookie(res, tokens.refresh_token);
+    res.status(201).json(tokens);
   }),
 );
 
@@ -102,7 +125,9 @@ authRouter.post(
     }
     if (!user!.isActive) throw new HttpError(403, "This account is disabled.");
 
-    res.json(await issueTokens(user!));
+    const tokens = await issueTokens(user!);
+    setRefreshCookie(res, tokens.refresh_token);
+    res.json(tokens);
   }),
 );
 
@@ -110,20 +135,28 @@ authRouter.post(
   "/refresh",
   route(async (req, res) => {
     const body = validate(refreshIn, req.body);
+    const token = body.refresh_token || req.cookies?.[REFRESH_COOKIE];
+    if (!token || typeof token !== "string") {
+      throw new HttpError(400, "Missing refresh token in request body or HttpOnly cookie.");
+    }
+
     const row = await prisma.refreshToken.findUnique({
-      where: { tokenHash: tokenHash(body.refresh_token) },
+      where: { tokenHash: tokenHash(token) },
       include: { user: { include: { organization: true } } },
     });
 
     const now = new Date();
     if (!row || row.revokedAt || row.expiresAt <= now || !row.user.isActive) {
+      clearRefreshCookie(res);
       throw new HttpError(401, "Your session has expired. Sign in again.");
     }
 
     // Rotate: the presented token dies as the new one is born, so a stolen
     // token is good for one use at most and the theft shows up as a failure.
     await prisma.refreshToken.update({ where: { id: row.id }, data: { revokedAt: now } });
-    res.json(await issueTokens(row.user));
+    const tokens = await issueTokens(row.user);
+    setRefreshCookie(res, tokens.refresh_token);
+    res.json(tokens);
   }),
 );
 
@@ -131,10 +164,14 @@ authRouter.post(
   "/logout",
   route(async (req, res) => {
     const body = validate(refreshIn, req.body);
-    await prisma.refreshToken.updateMany({
-      where: { tokenHash: tokenHash(body.refresh_token), revokedAt: null },
-      data: { revokedAt: new Date() },
-    });
+    const token = body.refresh_token || req.cookies?.[REFRESH_COOKIE];
+    if (token && typeof token === "string") {
+      await prisma.refreshToken.updateMany({
+        where: { tokenHash: tokenHash(token), revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+    }
+    clearRefreshCookie(res);
     // 204 whether or not it matched — nothing useful to report either way
     res.status(204).end();
   }),
@@ -206,6 +243,8 @@ authRouter.post(
       }),
     ]);
 
-    res.json(await issueTokens(row.user));
+    const tokens = await issueTokens(row.user);
+    setRefreshCookie(res, tokens.refresh_token);
+    res.json(tokens);
   }),
 );

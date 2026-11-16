@@ -78,6 +78,10 @@ class ValidateRequest(BaseModel):
     artifact_file: str = "model.joblib"
 
 
+class CanaryTrafficRequest(BaseModel):
+    traffic_pct: float = Field(..., ge=0.0, le=100.0)
+
+
 @app.get("/health")
 @app.head("/health")
 def health() -> dict:
@@ -160,10 +164,59 @@ def rollback_model_endpoint() -> dict:
         raise HTTPException(409, detail=str(e)) from e
 
 
+@app.post("/registry/canary-traffic", dependencies=[Depends(require_ml_auth)])
+def set_canary_traffic_endpoint(req: CanaryTrafficRequest) -> dict:
+    """Configure traffic percentage directed to the canary candidate."""
+    reg = get_registry()
+    pct = reg.set_canary_traffic(req.traffic_pct)
+    return {"ok": True, "canary_traffic_pct": pct}
+
+
+@app.post("/registry/abort-canary", dependencies=[Depends(require_ml_auth)])
+def abort_canary_endpoint() -> dict:
+    """Abort active canary and restore 100% routing to active production."""
+    reg = get_registry()
+    return {"ok": True, "result": reg.abort_canary("Manual administrative abort")}
+
+
 @app.post("/predict", dependencies=[Depends(require_ml_auth)])
 def predict_route(req: PredictRequest) -> dict:
+    reg = get_registry()
+    canary = reg.get_canary()
+
+    # Split-traffic canary candidate routing with automatic failover
+    if canary and reg.should_route_canary():
+        try:
+            canary_file = canary.get("artifact_file", "model.joblib")
+            canary_path = ARTIFACTS / canary_file
+            canary_art = load(canary_path)
+            detections = predict(req.flows, model_art=canary_art)
+            c_ver = canary.get("version", "canary")
+            for d in detections:
+                d["canary"] = True
+                d["model_version"] = c_ver
+            return {
+                "detections": detections,
+                "model_version": c_ver,
+                "is_canary": True,
+            }
+        except Exception:
+            # Canary candidate failure: record error and seamlessly failover to production
+            reg.record_canary_failure()
+
+    # Standard production inference
     try:
-        return {"detections": predict(req.flows)}
+        detections = predict(req.flows)
+        prod = reg.get_production()
+        p_ver = prod.get("version") if prod else "1.0.0"
+        for d in detections:
+            d["canary"] = False
+            d["model_version"] = p_ver
+        return {
+            "detections": detections,
+            "model_version": p_ver,
+            "is_canary": False,
+        }
     except FileNotFoundError as e:
         raise HTTPException(503, str(e)) from e
     except ValueError as e:

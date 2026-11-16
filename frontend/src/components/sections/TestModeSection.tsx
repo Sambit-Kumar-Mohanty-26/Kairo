@@ -74,8 +74,8 @@ const PIPELINE = [
   },
   { label: "Preprocess", detail: "training-only scaler · selected features", ms: 620 },
   {
-    label: "Ensemble inference",
-    detail: "weighted soft voting across the candidates",
+    label: "Two-stage cascade inference",
+    detail: "XGBoost binary gate + Stacking attack classifier",
     ms: 900,
   },
   {

@@ -97,7 +97,13 @@ function Body({
           </div>
         </div>
         <p className="mt-6 pt-5 border-t border-white/[0.08] font-mono text-[11px] text-[#8A8E86] leading-relaxed">
-          {PROFILES[d.attack].evidence}
+          {d.features && d.features.length > 0
+            ? "Key Telemetry Signals: " +
+              d.features
+                .slice(0, 3)
+                .map((f) => `${f.name} (${(f.weight * 100).toFixed(0)}%)`)
+                .join(" · ")
+            : (PROFILES[d.attack]?.evidence ?? "Nominal flow statistics")}
         </p>
       </div>
 

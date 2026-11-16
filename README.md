@@ -40,7 +40,9 @@ Kairo takes a fundamentally different approach:
 * **Hierarchical Cascade:** A two-stage classifier filters benign traffic at wire speed, spending compute only on suspicious flows.
 * **Durable Edge Operations:** Sensors buffer telemetry locally in an SQLite Write-Ahead Log (WAL), surviving network cuts and server restarts with zero packet loss.
 * **Resilient Distributed Ingestion:** Bounded asynchronous worker pool with edge backpressure shedding (HTTP 429), circuit breaking, and dead-letter queue (DLQ) isolation.
-* **Cryptographic Model Governance:** SHA-256 pre-deserialization validation, versioned model lifecycle registry, automated candidate SLO gates, and instant atomic rollback.
+* **Cryptographic Model Governance:** SHA-256 pre-deserialization validation, versioned model lifecycle registry, automated candidate SLO gates, split-traffic canary routing, and automated rollback under candidate failure.
+* **Defense-in-Depth Authentication:** Role-Based Access Control (RBAC) paired with HttpOnly, SameSite=Lax refresh cookies to prevent XSS credential harvesting.
+* **Enterprise Legal & Privacy:** Zero-payload flow processing documented in dedicated `/privacy`, `/terms`, and `/security` portals.
 * **Operator Feedback Loop:** Analyst triage actions (marking alerts as resolved or false positives) automatically generate cryptographically verified training labels for continuous model refinement.
 
 ---

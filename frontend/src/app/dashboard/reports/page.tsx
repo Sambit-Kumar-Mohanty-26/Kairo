@@ -199,7 +199,7 @@ export default function ReportsPage() {
       </section>
 
       <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#8A8E86] mt-10">
-        Generated {generated ? clock(generated) : "—"} · {mode === "live" ? "live data" : "fixture data"} · Kairo {org}
+        Generated {generated ? clock(generated) : "—"} · {mode === "live" ? "Live Telemetry Feed" : "Audited Evaluation Batch"} · Kairo {org}
       </p>
     </div>
   );

@@ -15,6 +15,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 # Before importing the package: the check trains its own throwaway model and
 # must never overwrite the one in artifacts/.
 os.environ.setdefault("KAIRO_ARTIFACTS", tempfile.mkdtemp(prefix="kairo-test-"))
+os.environ.setdefault("KAIRO_ML_TOKEN", "test-token")
+os.environ.setdefault("ALLOWED_ORIGINS", "http://localhost:3000")
 
 from kairo_ml.config import CLASSES, LABEL_MAP, canon_label, risk_of  # noqa: E402
 from kairo_ml.data import cap, clean, synthetic  # noqa: E402
@@ -219,6 +221,58 @@ def test_model_registry_lifecycle_and_validation():
     assert rollback_res["status"] == "rolled_back"
     assert rollback_res["active_production"] == "1.1.0-rc1"
     assert reg.get_production()["version"] == "1.1.0-rc1"
+
+
+def test_canary_routing_split_and_failure_rollback():
+    """Verify canary traffic splitting, automatic failover, and candidate rollback under failure."""
+    from kairo_ml.registry import ModelRegistry
+    import kairo_ml.service as svc
+    import kairo_ml.registry as reg_module
+
+    temp_reg_file = Path(os.environ["KAIRO_ARTIFACTS"]) / "canary_test_registry.json"
+    reg = ModelRegistry(registry_file=temp_reg_file)
+    reg_module._REGISTRY = reg
+
+    model_art_path = Path(os.environ["KAIRO_ARTIFACTS"]) / "model.joblib"
+    if not model_art_path.exists():
+        test_train_and_predict_round_trip()
+    art = load(model_art_path)
+    flow = {f: 1.0 for f in art["features"]}
+
+    # Register production and canary
+    reg.register(model_art_path, version="1.0.0", stage="PRODUCTION")
+    reg.register(model_art_path, version="1.1.0-canary", stage="CANARY")
+
+    req = svc.PredictRequest(flows=[flow])
+
+    # 1. 0% Canary traffic -> 100% Production
+    reg.set_canary_traffic(0.0)
+    data_0 = svc.predict_route(req)
+    assert data_0["is_canary"] is False
+    assert data_0["model_version"] == "1.0.0"
+
+    # 2. 100% Canary traffic -> 100% Canary
+    reg.set_canary_traffic(100.0)
+    data_100 = svc.predict_route(req)
+    assert data_100["is_canary"] is True
+    assert data_100["model_version"] == "1.1.0-canary"
+
+    # 3. Simulate Canary candidate failure: candidate points to broken/corrupted artifact
+    reg._data["models"]["1.1.0-canary"]["artifact_file"] = "corrupted_nonexistent.joblib"
+    reg._save()
+
+    # Inference request must NOT raise (zero failure); it must fail over to production!
+    data_failover = svc.predict_route(req)
+    assert data_failover["is_canary"] is False
+    assert data_failover["model_version"] == "1.0.0"
+    assert reg._data["canary_error_count"] >= 1
+
+    # Repeat until max_errors reached -> automatic canary abort
+    for _ in range(3):
+        svc.predict_route(req)
+
+    assert reg.get_canary() is None, "Canary was not aborted after reaching error threshold"
+    assert reg._data["models"]["1.1.0-canary"]["stage"] == "ARCHIVED"
 
 
 def test_binary_threshold_calibration_override():

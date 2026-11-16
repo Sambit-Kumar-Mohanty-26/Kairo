@@ -57,6 +57,9 @@ class ModelRegistry:
             "active_production": "1.0.0",
             "previous_production": None,
             "canary_version": None,
+            "canary_traffic_pct": 10.0,
+            "canary_error_count": 0,
+            "canary_max_errors": 3,
             "models": {},
         }
 
@@ -77,6 +80,59 @@ class ModelRegistry:
     def get_canary(self) -> dict[str, Any] | None:
         canary_ver = self._data.get("canary_version")
         return self._data["models"].get(canary_ver) if canary_ver else None
+
+    def set_canary_traffic(self, pct: float) -> float:
+        """Set canary traffic allocation percentage [0.0, 100.0]."""
+        if not (0.0 <= pct <= 100.0):
+            raise ValueError(f"Canary traffic percentage must be between 0 and 100, got {pct}")
+        self._data["canary_traffic_pct"] = float(pct)
+        self._save()
+        return self._data["canary_traffic_pct"]
+
+    def should_route_canary(self) -> bool:
+        """Evaluate if an incoming request should route to the canary candidate."""
+        if not self.get_canary():
+            return False
+        pct = float(self._data.get("canary_traffic_pct", 10.0))
+        if pct <= 0.0:
+            return False
+        if pct >= 100.0:
+            return True
+        import random
+        return random.random() * 100.0 < pct
+
+    def record_canary_failure(self) -> bool:
+        """Record a canary inference error and auto-abort canary if threshold exceeded.
+        
+        Returns True if automatic abort/rollback occurred.
+        """
+        curr = int(self._data.get("canary_error_count", 0)) + 1
+        self._data["canary_error_count"] = curr
+        max_err = int(self._data.get("canary_max_errors", 3))
+        if curr >= max_err:
+            self.abort_canary(reason=f"Exceeded error threshold ({curr}/{max_err})")
+            return True
+        self._save()
+        return False
+
+    def abort_canary(self, reason: str = "Candidate error threshold reached") -> dict[str, Any]:
+        """Abort canary deployment and revert 100% of traffic to active production."""
+        canary_ver = self._data.get("canary_version")
+        if not canary_ver:
+            return {"status": "no_canary_active"}
+        if canary_ver in self._data["models"]:
+            self._data["models"][canary_ver]["stage"] = "ARCHIVED"
+            self._data["models"][canary_ver]["aborted_at"] = datetime.now(timezone.utc).isoformat()
+            self._data["models"][canary_ver]["abort_reason"] = reason
+        self._data["canary_version"] = None
+        self._data["canary_error_count"] = 0
+        self._save()
+        return {
+            "status": "canary_aborted",
+            "aborted_version": canary_ver,
+            "reason": reason,
+            "active_production": self._data.get("active_production"),
+        }
 
     def register(
         self,
