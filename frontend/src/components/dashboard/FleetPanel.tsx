@@ -512,7 +512,7 @@ function OfficeBlock({
                         el.value = "";
                       }
                     }}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#DCDDCB] px-3 py-1.5 focus-within:border-[#171917] transition-colors duration-200"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-[#DCDDCB] px-3 py-1.5 focus-within:border-[#171917] focus-within:bg-[#FFFFF5] transition-colors duration-200"
                   >
                     <Plus className="w-3 h-3 text-[#8A8E86]" />
                     <input
@@ -521,6 +521,13 @@ function OfficeBlock({
                       aria-label={`Register a sensor on ${net.name}`}
                       className="w-[96px] bg-transparent font-mono text-[11px] placeholder:text-[#C9CBBE] focus:outline-none"
                     />
+                    <button
+                      type="submit"
+                      className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#8A8E86] hover:text-[#171917] bg-[#EAEAD8]/60 hover:bg-[#EAEAD8] px-1.5 py-0.5 rounded transition-colors"
+                      title="Press Enter or click to add sensor"
+                    >
+                      Add ↵
+                    </button>
                   </form>
 
                   {net.sensors.length === 0 && (
