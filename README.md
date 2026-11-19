@@ -66,11 +66,12 @@ Kairo is built as an edge-to-cloud observability fabric comprising a distributed
 
 ```mermaid
 graph LR
-    subgraph SENSOR["1. EDGE SENSOR (Linux Daemon)"]
+    subgraph SENSOR["1. EDGE SENSOR & AGGREGATOR"]
         direction LR
         TAP["Network TAP / IF"] --> CAP["Packet Engine\n(Raw Sockets)"]
         CAP --> FLOW["Flow Engine\n(30 Features)"]
         FLOW --> WAL[("SQLite Buffer\n(WAL Queue)")]
+        WAL --> AGG["Local Aggregator\n(Gzip & 500MB WAL)"]
     end
 
     subgraph CORE["2. CORE PLATFORM"]
@@ -91,7 +92,8 @@ graph LR
         DASH --> TRIAGE
     end
 
-    WAL -->|"HTTPS / Gzip"| API
+    WAL -.->|"Direct HTTPS"| API
+    AGG -->|"HTTPS / Gzip (-82.1%)"| API
     API -->|"Telemetry"| DASH
     TRIAGE -.->|"Feedback"| DB
 ```
@@ -114,9 +116,9 @@ Incoming Flow (30 Statistical Features)
                   ▼
    ┌──────────────────────────────┐
    │    Gate 02: Attack Namer     │ ──▶ Attack Classification:
-   │  (Specialized Attribution)   │     • DDoS          • Web Attack
-   └──────────────┬───────────────┘     • DoS           • Infiltration
-                  │                     • PortScan      • Botnet
+   │  (Specialized Attribution)   │     • DDoS          • Brute Force
+   └──────────────┬───────────────┘     • DoS           • Web Attack
+                  │                     • Port Scan     • Botnet
                   ▼
    ┌──────────────────────────────┐
    │   Explainability Engine      │ ──▶ Calculates Top-5 Feature Weights:
@@ -159,6 +161,7 @@ Kairo is built from the ground up for strict zero-trust and compliance-driven en
 | Directory | Package | Language / Stack | Purpose |
 | :--- | :--- | :--- | :--- |
 | [`agent/`](./agent) | **Kairo Sensor Daemon** | Python 3.11+ / Scapy / SQLite | Packet capture, flow reconstruction, local WAL buffer, and authenticated batch dispatch |
+| [`agent/aggregator.py`](./agent/README.md#scaling-with-the-local-edge-aggregator-enterprise--multi-sensor) | **Local Edge Aggregator** | Python 3.11+ / SQLite / Gzip | LAN proxy for 200+ sensors, sub-2ms 202 acks, Gzip compression, and 500MB offline WAL buffer |
 | [`api/`](./api) | **Core API Gateway** | TypeScript / Express / Prisma | Multi-tenant auth, RBAC middleware, async worker queue, circuit breaker, and audit logging |
 | [`frontend/`](./frontend) | **Operator Dashboard** | Next.js 16 / React 19 / Tailwind | Real-time threat timeline, sensor fleet health drawer, attack analysis, and dark mode interface |
 | [`ml/`](./ml) | **Inference Engine** | FastAPI / XGBoost / NumPy | Two-stage cascade, SHA-256 integrity, model lifecycle registry, and shift calibration harness |
@@ -236,6 +239,20 @@ Engine benchmarks executed on standard commodity x86 hardware:
 | **Fleet Heartbeat Ingest** | Idempotent transaction + health derivation | **< 4 ms per heartbeat** |
 | **Telemetry Query Engine** | Composite index B-tree scan | **< 8 ms** (zero in-memory quicksort overhead) |
 
+### 🌐 Cross-Dataset Generalization & Multi-Domain Fusion
+
+Single-dataset NIDS models suffer from covariate shift when evaluated on traffic from unseen networks. Kairo benchmarks cross-domain transfer across Canadian (CICIDS2017) and Australian (UNSW-NB15) environments:
+
+| Training Paradigm | Training Pool | CICIDS2017 Macro-F1 | UNSW-NB15 Macro-F1 | Harmonic F1 | Train Time |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Model A: Single-Domain** | CICIDS2017 only (StandardScaler) | **0.9992** | 0.2037 *(collapsed)* | 0.3384 | 2.14 s |
+| **Model B: Outlier Scaler** | CICIDS2017 only (RobustScaler) | **0.9990** | 0.2036 | 0.3383 | 2.30 s |
+| **Model C: Multi-Domain Fusion** | **CICIDS2017 + UNSW-NB15 pooled** | **0.9987** | **0.9215** *(+71.8%)* | **0.9586** | **3.76 s** |
+| **Model D: Feature Debiased** | Pooled, OS TCP windows excluded | **0.9952** | **0.9208** | **0.9566** | **5.85 s** |
+
+* **Empirical Recovery:** Multi-dataset domain fusion restores cross-domain performance to **92.15% Macro-F1** (95.13% accuracy) on held-out UNSW-NB15 traffic while preserving **99.87%** on CICIDS2017.
+* **Fast Convergence:** Training completes in **3.76 seconds** on commodity x86 hardware.
+
 ---
 
 ## 🧪 Testing & Quality Assurance
@@ -249,8 +266,14 @@ cd ml && python -m pytest tests/
 # Run cross-network covariate shift and threshold calibration analysis
 cd ml && python -m kairo_ml.shift_analysis
 
+# Run multi-dataset domain fusion benchmark (CICIDS2017 + UNSW-NB15)
+cd ml && python -m kairo_ml.multi_dataset
+
 # Test sensor SQLite queue, backoff logic, and recovery
 cd ../agent && python test_queue.py
+
+# Test local edge aggregator WAL buffer and concurrency
+cd ../agent && python -m unittest test_aggregator.py
 
 # Verify backend TypeScript compilation
 cd ../api && npx tsc --noEmit
