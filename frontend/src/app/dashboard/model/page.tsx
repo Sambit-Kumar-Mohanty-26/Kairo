@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Check, TriangleAlert } from "lucide-react";
+import { Check, TriangleAlert, Database, Sparkles } from "lucide-react";
+import DatasetInspector from "@/components/dashboard/DatasetInspector";
 import { useConsole } from "@/components/dashboard/DemoProvider";
 import {
   CANDIDATE,
@@ -18,6 +19,7 @@ const MEMBER_COLOUR = ["#16DFA0", "#E4D4F8", "#FBBF24"];
 export default function ModelPage() {
   const { allDetections } = useConsole();
   const [decision, setDecision] = useState<"promote" | "reject" | null>(null);
+  const [activeTab, setActiveTab] = useState<"governance" | "inspector">("governance");
 
   // Every alert you closed is a labelled row. This is the whole feedback loop,
   // counted rather than described.
@@ -47,7 +49,41 @@ export default function ModelPage() {
         <p className="text-[14.5px] leading-relaxed text-[#62665F] mt-2 max-w-[58ch]">
           What is deployed, what it is made of, and what the next version would have to beat.
         </p>
+
+        {/* Tab switcher: Governance vs Dataset Inspector */}
+        <div className="flex flex-wrap items-center gap-2 mt-6 border-b border-[#E5E7EB] dark:border-white/[0.08] pb-4">
+          <button
+            onClick={() => setActiveTab("governance")}
+            className={`px-4 py-2 rounded-xl text-xs font-mono tracking-wider transition-all flex items-center gap-2 ${
+              activeTab === "governance"
+                ? "bg-[#111413] text-white dark:bg-white dark:text-[#111413] font-semibold shadow-sm"
+                : "text-[#62665F] hover:text-[#111413] dark:hover:text-white"
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            Model Governance & Architecture
+          </button>
+          <button
+            onClick={() => setActiveTab("inspector")}
+            className={`px-4 py-2 rounded-xl text-xs font-mono tracking-wider transition-all flex items-center gap-2 ${
+              activeTab === "inspector"
+                ? "bg-[#111413] text-white dark:bg-white dark:text-[#111413] font-semibold shadow-sm"
+                : "text-[#62665F] hover:text-[#111413] dark:hover:text-white"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
+            Dataset Inspector & Flow Classifier
+            <span className="px-1.5 py-0.5 rounded text-[9px] bg-[#10B981]/20 text-[#10B981] font-bold">
+              410 FLOWS
+            </span>
+          </button>
+        </div>
       </header>
+
+      {activeTab === "inspector" ? (
+        <DatasetInspector />
+      ) : (
+        <div className="space-y-12">
 
       {/* ---- deployed ---- */}
       <section className="rounded-2xl sm:rounded-3xl bg-[#111413] text-white border border-white/[0.08] shadow-[0_16px_36px_-6px_rgba(17,20,19,0.16)] overflow-hidden">
@@ -286,6 +322,8 @@ export default function ModelPage() {
           )}
         </div>
       </section>
+        </div>
+      )}
     </div>
   );
 }
