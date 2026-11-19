@@ -50,32 +50,29 @@ export default function ModelPage() {
           What is deployed, what it is made of, and what the next version would have to beat.
         </p>
 
-        {/* Tab switcher: Governance vs Dataset Inspector */}
-        <div className="flex flex-wrap items-center gap-2 mt-6 border-b border-[#E5E7EB] dark:border-white/[0.08] pb-4">
+        {/* Clean Light SaaS Tab Switcher */}
+        <div className="flex flex-wrap items-center gap-2.5 mt-8 border-b border-[#DCDDCB] pb-4">
           <button
             onClick={() => setActiveTab("governance")}
             className={`px-4 py-2 rounded-xl text-xs font-mono tracking-wider transition-all flex items-center gap-2 ${
               activeTab === "governance"
-                ? "bg-[#111413] text-white dark:bg-white dark:text-[#111413] font-semibold shadow-sm"
-                : "text-[#62665F] hover:text-[#111413] dark:hover:text-white"
+                ? "bg-[#171917] text-white font-medium shadow-sm"
+                : "bg-white text-[#62665F] hover:text-[#171917] border border-[#DCDDCB] hover:bg-[#F8F8EC]"
             }`}
           >
             <Database className="w-3.5 h-3.5" />
-            Model Governance & Architecture
+            Model Architecture & Governance
           </button>
           <button
             onClick={() => setActiveTab("inspector")}
             className={`px-4 py-2 rounded-xl text-xs font-mono tracking-wider transition-all flex items-center gap-2 ${
               activeTab === "inspector"
-                ? "bg-[#111413] text-white dark:bg-white dark:text-[#111413] font-semibold shadow-sm"
-                : "text-[#62665F] hover:text-[#111413] dark:hover:text-white"
+                ? "bg-[#171917] text-white font-medium shadow-sm"
+                : "bg-white text-[#62665F] hover:text-[#171917] border border-[#DCDDCB] hover:bg-[#F8F8EC]"
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
-            Dataset Inspector & Flow Classifier
-            <span className="px-1.5 py-0.5 rounded text-[9px] bg-[#10B981]/20 text-[#10B981] font-bold">
-              410 FLOWS
-            </span>
+            <Sparkles className="w-3.5 h-3.5 text-[#059669]" />
+            Custom Dataset Inspector & Validation Lab
           </button>
         </div>
       </header>
