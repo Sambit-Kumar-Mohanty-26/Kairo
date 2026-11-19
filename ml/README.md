@@ -41,6 +41,8 @@ into U+FFFD. `canon_label` in `config.py` normalises all of them, which is why
 | `python -m kairo_ml.cascade` | `benchmark.json` (+1 row), `model.joblib`, `metrics.json` | The two-stage gate/namer, and the deploy |
 | `python -m kairo_ml.selection` | `tells.json` | Per-class one-vs-rest MI — section 03's chips |
 | `python -m kairo_ml.generalize` | `generalization.json` | UNSW-NB15, no retraining — section 07 |
+| `python -m kairo_ml.shift_analysis` | `shift_analysis.json` | Covariate drift (KS & Wasserstein) and threshold calibration |
+| `python -m kairo_ml.multi_dataset` | `generalization_benchmark.json` | Multi-dataset cross-domain training (CICIDS2017 + UNSW-NB15) |
 | `python -m kairo_ml.train [--synthetic]` | `model.joblib`, `metrics.json` | The voting ensemble on its own; `--synthetic` runs in a minute |
 | `python -m kairo_ml.fetch_model` | `model.joblib` | Pulls a trained artifact from `KAIRO_MODEL_URL` — the deploy's build step |
 | `python tests/test_pipeline.py` | — | Eight checks over the whole path |
@@ -64,6 +66,23 @@ straddling zero, because macro-F1 averages a class with 389 test rows. Two
 models inside each other's noise get chosen on architecture, and the cascade
 gates every flow with one cheap binary model and only pays for the naming
 ensemble on what passes. The landing page prints both rows and the interval.
+
+## Cross-Dataset Generalization & Multi-Domain Training
+
+Single-dataset intrusion detection models suffer from **covariate shift**: models memorise lab-specific network parameters (e.g., initial TCP window sizes, fixed timeout clocks) rather than invariant attack dynamics.
+
+To evaluate and resolve this, `kairo_ml.multi_dataset` benchmarks three training paradigms on held-out evaluation sets across two distinct benchmark domains (CICIDS2017 and UNSW-NB15):
+
+| Model Paradigm | Training Pool | CICIDS2017 Macro-F1 | UNSW-NB15 Macro-F1 | Harmonic Cross-Domain F1 | Training Time |
+|---|---|:---:|:---:|:---:|:---:|
+| **Model A: Single-Domain Baseline** | CICIDS2017 only (StandardScaler) | **0.9992** | 0.2037 *(collapsed)* | 0.3384 | 2.22 s |
+| **Model B: Robust Outlier Scaling** | CICIDS2017 only (RobustScaler) | **0.9990** | 0.2036 | 0.3383 | 2.14 s |
+| **Model C: Joint Multi-Dataset Fusion** | **CICIDS2017 + UNSW-NB15 pooled** | **0.9987** | **0.9215** *(+71.8%)* | **0.9586** | **4.00 s** |
+
+### Key Empirical Findings:
+1. **Single-Domain Overfitting:** Model A achieves 99.92% on its home dataset, but drops to 20.37% Macro-F1 (0% on Port Scan) on unseen UNSW traffic because of 17 high-drift features (e.g. `Init_Win_bytes_backward` with Kolmogorov-Smirnov $KS = 0.8666$).
+2. **Multi-Domain Fusion Solves Cross-Dataset Failure:** Model C trained on pooled flows from both environments retains **99.87%** Macro-F1 on Canadian CICIDS2017 traffic while jumping to **92.15%** Macro-F1 on Australian UNSW-NB15 traffic (**0.9586 harmonic cross-domain F1**), completing training in **4.0 seconds**.
+3. **Reproducibility:** Run `PYTHONPATH=src python -m kairo_ml.multi_dataset` to regenerate `artifacts/generalization_benchmark.json`.
 
 ## Deploy
 

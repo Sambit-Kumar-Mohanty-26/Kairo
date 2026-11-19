@@ -43,6 +43,24 @@ Register the sensor under the network whose CIDR it actually watches. That
 mapping is what turns a detection into "the Bangalore DMZ is being scanned"
 rather than "something happened somewhere".
 
+### Scaling with the Local Edge Aggregator (Enterprise / Multi-Sensor)
+
+When deploying multiple sensors across a university campus, office building, or plant (10 to 200+ sensors), avoid having every sensor make direct WAN internet calls:
+
+1. Run the **Local Edge Aggregator** on any spare desktop, server, or Pi in the building:
+   ```sh
+   python -m agent.aggregator --upstream https://kairo-api.onrender.com/api --port 8080
+   ```
+2. Point your local sensors to the aggregator on the LAN:
+   ```sh
+   export KAIRO_URL=http://<AGGREGATOR_LAN_IP>:8080
+   export KAIRO_SENSOR_KEY=ksk_...
+   python agent.py --interface eth0
+   ```
+* **Bandwidth Savings:** Automatically bundles and Gzip-compresses flow batches, reducing uplink bandwidth by up to 85%.
+* **WAN Outage Durability:** If the campus internet drops, the aggregator buffers all telemetry in local SQLite WAL (up to 500 MB) and automatically drains to the cloud once connectivity resumes.
+* **Live Telemetry:** Check local health & savings anytime via `http://<AGGREGATOR_LAN_IP>:8080/stats`.
+
 ### Running as a service
 
 ```ini

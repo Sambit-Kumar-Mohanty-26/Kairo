@@ -95,11 +95,11 @@ class Sender:
     def send_batch(self, batch_id: str, flows: list[dict]) -> tuple[bool, str, int]:
         """Post a batch of flows. Returns (success, error_description, status_code)."""
         status, data, err = self._request("/ingest/flows", method="POST", payload={"batch_id": batch_id, "flows": flows})
-        if status == 200:
+        if status in (200, 202):
             attacks = data.get("attacks", 0)
             accepted = data.get("accepted", len(flows))
             logger.info(f"Batch {batch_id[:8]} accepted: {accepted} flows, {attacks} attack(s)")
-            return True, "", 200
+            return True, "", status
         return False, err, status
 
     def heartbeat(self, metrics: dict[str, Any]) -> tuple[bool, dict]:
