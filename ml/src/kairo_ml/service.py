@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 from . import __version__
 from .config import ARTIFACTS, METRICS_PATH, MODEL_PATH
 from .infer import load, predict
+from .hybrid import hybrid_predict
 from .registry import get_registry
 
 app = FastAPI(title="Kairo ML", version=__version__)
@@ -206,7 +207,7 @@ def predict_route(req: PredictRequest) -> dict:
 
     # Standard production inference
     try:
-        detections = predict(req.flows)
+        detections = hybrid_predict(req.flows)
         prod = reg.get_production()
         p_ver = prod.get("version") if prod else "1.0.0"
         for d in detections:
