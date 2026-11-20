@@ -35,10 +35,10 @@
 Traditional signature tools (Snort, Suricata) fail against zero-day exploits and encrypted traffic, while cloud security systems require you to ship private customer data off-premises and provide vague, unexplainable alerts.
 
 Kairo takes a fundamentally different approach:
-* **Google-Grade 4-Layer Hybrid Engine:** Combines zero-retraining Behavioral Invariants (Layer 1), Unsupervised Anomaly Baselines (Layer 2), High-Speed Foundation ML Cascade (Layer 3), and Real-time Threat Intelligence (Layer 4) for true enterprise defense-in-depth.
+* **4-Layer Hybrid Defense Engine:** Integrates deterministic Behavioral Invariants (Layer 1), Unsupervised Anomaly Baselines (Layer 2), Two-Stage Foundation ML Cascade (Layer 3), and IP/CIDR Threat Reputation (Layer 4).
 * **Payload-Free Flow Intelligence:** Monitors network traffic without ever reading packet payloads, URLs, hostnames, or credentials.
-* **Explainable Detection:** Replaces arbitrary risk scores with rigorous statistical evidence. Every alert includes the top-5 weighted features that caused the detection and layer attribution.
-* **Cross-Domain Generalization:** Rigorously audited and bench-tested across **5 distinct global datasets** (CICIDS2017 on-prem, UNSW-NB15 university, CSE-CIC-IDS2018 AWS Cloud, ToN-IoT smart infrastructure, and NSL-KDD legacy telemetry).
+* **Explainable Detection:** Replaces arbitrary risk scores with statistical evidence. Every alert includes the top-5 weighted features that caused the detection and layer attribution.
+* **Multi-Domain Validation:** Evaluated across distinct enterprise and cloud environments (CICIDS2017 on-prem, UNSW-NB15 university, CSE-CIC-IDS2018 AWS Cloud), with exploratory prototyping on IoT and defense telemetry.
 * **Durable Edge Operations:** Sensors buffer telemetry locally in an SQLite Write-Ahead Log (WAL), surviving network cuts and server restarts with zero packet loss.
 * **Resilient Distributed Ingestion:** Bounded asynchronous worker pool with edge backpressure shedding (HTTP 429), circuit breaking, and dead-letter queue (DLQ) isolation.
 * **Local Edge Aggregator:** Fronts 200+ edge sensors per LAN with sub-2ms 202 acks, Gzip stream compression (-82.1%), and a 500MB offline WAL queue.

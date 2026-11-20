@@ -4,7 +4,7 @@
   "dataset": "CICIDS2017 - 253,240 flows",
   "accuracy": 0.999,
   "macroF1": 0.9945,
-  "trainSeconds": 11.5,
+  "trainSeconds": 18.1,
   "deployed": "Two-Stage Cascade",
   "classes": [
     {

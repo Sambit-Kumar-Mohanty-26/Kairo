@@ -547,11 +547,40 @@
         }
       ],
       "name": "Two-Stage Cascade",
-      "seconds": 11.5,
+      "seconds": 18.1,
       "note": "gate + XGBoost namer",
       "trainRows": 202592,
       "namedShare": 0.7635,
-      "latencyUsPerFlow": 4.3
+      "latencyUsPerFlow": 6.0,
+      "incumbentLatencyUsPerFlow": 45.5,
+      "vsIncumbent": {
+        "Two-Stage Cascade": {
+          "mean": 0.9945,
+          "ci95": [
+            0.9926,
+            0.9964
+          ]
+        },
+        "Stacking Ensemble": {
+          "mean": 0.9945,
+          "ci95": [
+            0.9925,
+            0.9964
+          ]
+        },
+        "diff": {
+          "of": [
+            "Two-Stage Cascade",
+            "Stacking Ensemble"
+          ],
+          "mean": 7e-05,
+          "ci95": [
+            -0.00085,
+            0.00099
+          ],
+          "aheadShare": 0.595
+        }
+      }
     }
   ],
   "deployed": "Two-Stage Cascade"
