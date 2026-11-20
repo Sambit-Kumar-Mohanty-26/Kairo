@@ -1,20 +1,43 @@
 {
   "CSE-CIC-IDS2018": {
-    "environment": "Amazon AWS Cloud",
+    "environment": "Amazon AWS Cloud (Virtual Infrastructure)",
+    "dataset_file": "ml/data/cse_cicids2018_test_17k.csv",
     "total_flows": 17095,
-    "overall_accuracy": 0.7562,
-    "macro_f1": 0.754,
-    "layer_attribution": {
-      "Layer 1 (Behavioral Invariant)": 12187,
-      "Layer 3 (Pretrained ML Cascade)": 4908
+    "class_distribution": {
+      "DDoS": 6015,
+      "Normal": 5164,
+      "Brute Force": 3213,
+      "Botnet": 2703
     },
-    "classes": [
-      "Botnet",
-      "Brute Force",
-      "DDoS",
-      "Normal"
-    ],
-    "brute_force_recall": 1.0,
-    "ddos_f1": 0.7829
+    "pure_ml_zero_shot": {
+      "accuracy": 0.3021,
+      "macro_f1": 0.116,
+      "brute_force_recall": 0.0,
+      "ddos_recall": 0.0,
+      "botnet_recall": 0.0
+    },
+    "layer1_hybrid_zero_shot": {
+      "accuracy": 0.7562,
+      "macro_f1": 0.754,
+      "layer_attribution": {
+        "Layer 1 (Behavioral Invariant)": 12187,
+        "Layer 3 (Pretrained ML Cascade)": 4908
+      },
+      "layer1_decided_flows": 12187,
+      "layer1_decided_percent": 71.29,
+      "brute_force_support": 3213,
+      "brute_force_recall": 1.0,
+      "ddos_support": 6015,
+      "ddos_f1": 0.7829,
+      "botnet_support": 2703,
+      "botnet_f1": 0.673
+    },
+    "calibrated_adaptation": {
+      "train_sample_flows": 2564,
+      "train_seconds": 0.53,
+      "held_out_test_flows": 14531,
+      "accuracy": 0.9993,
+      "macro_f1": 0.9993
+    }
   }
 }

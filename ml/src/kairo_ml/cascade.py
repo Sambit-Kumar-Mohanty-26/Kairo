@@ -253,14 +253,17 @@ def run(per_class: int = 60_000, seed: int = 42, namer: str = "xgb") -> dict:
         (m for m in bench["models"] if m["name"] != NAME), key=lambda m: m["macroF1"]
     )
     if MODEL_PATH.exists():
-        incumbent = joblib.load(MODEL_PATH)["model"]
-        row["incumbentLatencyUsPerFlow"] = _latency(incumbent, X_te)
-        row["vsIncumbent"] = _bootstrap(y_te, {NAME: pred, champion["name"]: incumbent.predict(X_te)})
-        d = row["vsIncumbent"]["diff"]
-        print(f"  {row['latencyUsPerFlow']}us/flow vs {row['incumbentLatencyUsPerFlow']}us "
-              f"· names {row['namedShare'] * 100:.0f}% of the split")
-        print(f"  macro-F1 vs {champion['name']}: {d['mean']:+.5f} "
-              f"[{d['ci95'][0]:+.5f}, {d['ci95'][1]:+.5f}], ahead in {d['aheadShare'] * 100:.0f}% of resamples")
+        try:
+            incumbent = joblib.load(MODEL_PATH)["model"]
+            row["incumbentLatencyUsPerFlow"] = _latency(incumbent, X_te)
+            row["vsIncumbent"] = _bootstrap(y_te, {NAME: pred, champion["name"]: incumbent.predict(X_te)})
+            d = row["vsIncumbent"]["diff"]
+            print(f"  {row['latencyUsPerFlow']}us/flow vs {row['incumbentLatencyUsPerFlow']}us "
+                  f"· names {row['namedShare'] * 100:.0f}% of the split")
+            print(f"  macro-F1 vs {champion['name']}: {d['mean']:+.5f} "
+                  f"[{d['ci95'][0]:+.5f}, {d['ci95'][1]:+.5f}], ahead in {d['aheadShare'] * 100:.0f}% of resamples")
+        except Exception as e:
+            print(f"  Skipping incumbent comparison due to schema difference: {e}")
 
     bench["models"] = [m for m in bench["models"] if m["name"] != NAME] + [row]
     bench["best"] = max(bench["models"], key=lambda m: m["macroF1"])["name"]
