@@ -104,34 +104,41 @@ graph LR
 
 ## 🧠 Google-Grade 4-Layer Hybrid Detection Engine
 
-To overcome the fundamental limitations of single ML models (which suffer from covariate shift when applied to unseen networks), Kairo adopts the **4-Pillar Architecture** utilized by Tier-1 enterprise security systems (e.g., Google Cloud Armor / Chronicle / Mandiant):
+To overcome the fundamental limitations of single ML models (which suffer from covariate shift when applied to unseen networks), Kairo adopts a **4-Layer Defense-in-Depth Pipeline**:
 
 ```text
 Incoming Flow (30 Statistical Features + Flow Metadata)
                    │
-                   ├──▶ [Layer 1: Behavioral Invariants] ────▶ High Confidence Fast-Path (DDoS, Scan, Brute Force)
-                   │    (Zero-retraining volumetric & protocol rules)
+                   ├──▶ [Layer 4: Threat Intelligence] ──────▶ Priority 1: Known C2 / Malicious CIDR Intercept
+                   │    (In-memory IP/CIDR reputation lookup)
                    │
-                   ├──▶ [Layer 4: Threat Intelligence] ──────▶ Immediate C2 / Malicious Subnet Intercept
-                   │    (Real-time reputation feeds & known IOCs)
+                   ├──▶ [Layer 1: Behavioral Invariants] ────▶ Priority 2: High Confidence Fast-Path
+                   │    (Zero-retraining deterministic network rules)
                    │
-                   ├──▶ [Layer 2: Unsupervised Baseline] ────▶ Out-of-Distribution Anomaly Flagging
-                   │    (Passive Isolation Forest on local network)
+                   ├──▶ [Layer 3: Pre-Trained Foundation ML] ─▶ Priority 3: Two-Stage Explainable Cascade
+                   │    (Gate 01 Binary Sieve + Gate 02 Multi-Attack Namer)
                    │
-                   └──▶ [Layer 3: Pre-Trained Foundation ML] ─▶ Two-Stage Explainable Cascade
-                                                               (Gate 01 Binary Sieve + Gate 02 Multi-Attack Namer)
-                                                                       │
-                                                                       ▼
-                                                       [Consensus Arbiter & Explainability]
-                                                       (Top-5 Z-Score Feature Weights + Layer Attribution)
+                   └──▶ [Layer 2: Unsupervised Baseline] ────▶ Priority 4: Anomaly Fallback (P > 0.85)
+                        (Passive Isolation Forest on local normal traffic)
+                               │
+                               ▼
+                   [Hierarchical Priority Arbiter & Explainability]
+                   (Top-5 Z-Score Feature Weights + Layer Attribution)
 ```
 
 | Layer | Component | Core Mechanism | Training / Adaptation Need |
 | :--- | :--- | :--- | :--- |
-| **Layer 1** | **Behavioral Invariants** | Catches volumetric floods (pps/bps limits), SYN storms, port sweeps, and brute-force auth churn. | **Zero Retraining** (works universally out-of-the-box). |
-| **Layer 2** | **Unsupervised Anomaly Baseline** | Learns local benign traffic distributions using `IsolationForest` / multivariate density estimators. | **Zero Labeled Attack Data** (passively observes local normal flows). |
-| **Layer 3** | **Pre-Trained Foundation Cascade** | Hierarchical XGBoost cascade (Gate 01 binary sieve + Gate 02 multi-class attack namer). | **Fast Convergence** (< 6s calibration for out-of-domain transfer). |
-| **Layer 4** | **Threat Intelligence Feeds** | Real-time C2 IP reputation, known botnet ranges, and malicious IOC matching. | **Continuous Daily Sync** (threat signatures update without model re-training). |
+| **Layer 1** | **Behavioral Invariants** (`rules.py`) | Catches volumetric floods (`>4,000 pkts/s`), unreplied scans, and auth-port bursts (`<0.8s` duration on ports 22/23/3389). | **Zero Retraining** (works universally out-of-the-box). |
+| **Layer 2** | **Unsupervised Anomaly Baseline** (`anomaly.py`) | Learns local benign traffic distributions using `IsolationForest(contamination=0.01)` with sigmoid anomaly scaling ($P > 0.85$). | **Zero Labeled Attack Data** (passively observes local normal flows). |
+| **Layer 3** | **Pre-Trained Foundation Cascade** (`cascade.py`) | Hierarchical XGBoost cascade (Gate 01 binary sieve + Gate 02 multi-class attack namer). | **Fast Convergence** (< 6s calibration for out-of-domain transfer). |
+| **Layer 4** | **Threat Intelligence Engine** (`threat_intel.py`) | In-memory IP/CIDR reputation matcher pre-seeded with test IOCs, structured for STIX/TAXII threat feed ingestion. | **Config-Driven** (instant updates without model re-training). |
+
+### Hierarchical Priority Arbiter (`hybrid.py`)
+Rather than opaque voting, Kairo evaluates threats through a deterministic **preemption hierarchy**:
+1. **Layer 4 Preemption:** If source or target IP matches known malicious IP/CIDR threat intelligence, immediate alert attributed to `Layer 4 (Threat Intelligence)`.
+2. **Layer 1 Preemption:** If flow dynamics violate deterministic invariants (e.g. volumetric DDoS or authentication port burst), fast-path alert attributed to `Layer 1 (Behavioral Invariant)`.
+3. **Layer 3 Cascade:** If no invariant triggers, the two-stage XGBoost cascade evaluates the flow, attributed to `Layer 3 (Pretrained ML Cascade)`.
+4. **Layer 2 Fallback:** If Layer 3 classifies a flow as `Normal`, but Layer 2's unsupervised Isolation Forest calculates an anomaly probability $P > 0.85$, the flow is flagged as an outlier attributed to `Layer 2 (Unsupervised Baseline Anomaly)`.
 
 ### Layer 3 Cascade Architecture
 ```text
@@ -269,23 +276,23 @@ Engine benchmarks executed on standard commodity x86 hardware:
 | **Fleet Heartbeat Ingest** | Idempotent transaction + health derivation | **< 4 ms per heartbeat** |
 | **Telemetry Query Engine** | Composite index B-tree scan | **< 8 ms** (zero in-memory quicksort overhead) |
 
-### 🌐 Multi-Domain Benchmark Suite (5 Diverse Global Environments)
+### 🌐 Multi-Domain Benchmark Suite & Verifiable Artifacts
 
-Single-dataset NIDS models collapse under covariate shift when evaluated on traffic from unseen networks. To evaluate true enterprise generalization, Kairo benchmarks the 4-layer hybrid engine across **5 distinct global datasets** spanning enterprise on-premise, university campus, hyperscale cloud, industrial IoT, and legacy environments:
+Single-dataset NIDS models collapse under covariate shift when evaluated on traffic from unseen networks. To evaluate true enterprise generalization, Kairo benchmarks detection across diverse network environments, persisting reproducible evaluation artifacts in `ml/artifacts/`:
 
-| Dataset | Environment & Origin | Flows Tested | Pure ML Zero-Shot F1 | Layer 1 Hybrid Zero-Shot | Calibrated / Fused Macro-F1 | Accuracy | Adaptation Time |
-| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| **CICIDS2017** | Canadian Enterprise Office LAN (CSEC) | 50,648 | **0.9945** | **0.9945** | **0.9987** | 99.90% | 2.14 s |
-| **UNSW-NB15** | Australian Cyber Range Campus (UNSW) | 35,066 | 0.2037 *(collapsed)* | 0.3239 | **0.9215** *(+71.8%)* | 95.13% | 3.76 s |
-| **CSE-CIC-IDS2018** | Amazon AWS Cloud Infrastructure | 14,531 | 0.1160 *(cloud shift)* | **0.7540** *(100% Brute Force caught)* | **0.9982** *(+88.2%)* | 99.83% | 5.50 s |
-| **ToN-IoT** | Industrial Smart IoT Telemetry *(ScienceDirect 2026)* | 8,015 | 0.0400 *(micro-payloads)* | 0.1420 | **0.9284** *(+88.8%)* | 94.31% | 1.01 s |
-| **NSL-KDD** | Heterogeneous Defense Telemetry (`KDDTest+`) | 19,161 | 0.3117 *(legacy feature set)* | 0.4420 *(79.7% attacks caught)* | **0.8982** *(+58.7%)* | 98.00% | 1.44 s |
+| Dataset | Environment & Origin | Evaluated Flows | Pure ML Zero-Shot F1 | Layer 1 Hybrid Zero-Shot | Calibrated Macro-F1 | Verifiable Artifact File |
+| :--- | :--- | :---: | :---: | :---: | :---: | :--- |
+| **CICIDS2017** | Canadian Enterprise Office LAN (CSEC) | 50,648 | **0.9945** | **0.9945** | **0.9987** | [`ml/artifacts/metrics.json`](ml/artifacts/metrics.json) |
+| **UNSW-NB15** | Australian Cyber Range Campus (UNSW) | 35,066 | 0.2037 *(drift)* | 0.3239 | **0.9215** *(+71.8%)* | [`ml/artifacts/generalization_benchmark.json`](ml/artifacts/generalization_benchmark.json) |
+| **CSE-CIC-IDS2018** | **Amazon AWS Cloud Infrastructure** | 17,095 | 0.1160 *(cloud shift)* | **0.7540** *(100% Brute Force caught)* | **0.9982** *(+88.2%)* | [`ml/artifacts/multidomain_benchmark.json`](ml/artifacts/multidomain_benchmark.json) |
+| **ToN-IoT** | Industrial Smart IoT Telemetry *(2026 Paper)* | 8,015 | 0.0400 *(micro-pkts)* | 0.1420 | **0.9284** | *Evaluated via `eval_ton_iot.py`* |
+| **NSL-KDD** | Heterogeneous Defense Telemetry (`KDDTest+`) | 19,161 | 0.3117 | 0.4420 *(79.7% caught)* | **0.8982** | *Evaluated via `eval_nsl_kdd.py`* |
 
 #### Key Empirical Discoveries:
 1. **Behavioral Invariants Rescue Volumetric Cloud Zero-Shot:**
-   On AWS Cloud (CSE-CIC-IDS2018), pure supervised ML collapsed to 11.60% Macro-F1 due to severe cloud topology and TCP window differences. Layer 1 Behavioral Invariants intercepted **12,187 malicious flows out-of-the-box**, boosting zero-shot Macro-F1 directly to **75.40%** with **100.0% recall on Brute Force attacks** without seeing a single cloud training example.
+   On AWS Cloud (CSE-CIC-IDS2018), pure supervised ML collapsed to 11.60% Macro-F1 due to severe cloud topology and TCP window differences. Layer 1 Behavioral Invariants intercepted **12,187 malicious flows out-of-the-box**, boosting zero-shot Macro-F1 directly to **75.40%** with **100.0% recall on Brute Force attacks** without seeing a single cloud training example (persisted in `ml/artifacts/multidomain_benchmark.json`).
 2. **Sub-6-Second Rapid Adaptation:**
-   When domain adaptation is triggered, Kairo's hierarchical cascade converges in **1.01 to 5.50 seconds** on standard CPU hardware, achieving >89% to 99.8% Macro-F1 across all 5 unseen domains.
+   When domain adaptation is triggered, Kairo's hierarchical cascade converges in **1.01 to 5.50 seconds** on standard CPU hardware, achieving >89% to 99.8% Macro-F1 across unseen domains.
 3. **Interactive Validation Lab:**
    The operator console includes a built-in **Dataset Inspector (`/dashboard/inspector`)** enabling security teams to drag-and-drop unknown network PCAPs/CSVs, visualize Kolmogorov-Smirnov feature drift, and benchmark zero-shot vs calibrated detection performance in real-time.
 
@@ -293,13 +300,13 @@ Single-dataset NIDS models collapse under covariate shift when evaluated on traf
 
 ## 🧪 Testing & Quality Assurance
 
-Kairo maintains automated test suites across every layer of the architecture:
+Kairo maintains automated test suites across every layer of the architecture (**20 unit tests across pipeline and hybrid layers**):
 
 ```bash
-# Test 4-layer hybrid engine, rules, anomaly baselines, and cascade attribution (12/12 passing)
+# Test complete ML pipeline and 4-layer hybrid defense (20/20 passing)
 cd ml && python -m pytest tests/
 
-# Run multi-domain benchmark audit (CICIDS2017, CSE-CIC-IDS2018, ToN-IoT, NSL-KDD)
+# Run multi-domain benchmark audit and persist artifact
 cd ml && python -m kairo_ml.eval_hybrid_multidomain
 cd ml && python -m kairo_ml.eval_cicids2018
 cd ml && python -m kairo_ml.eval_ton_iot

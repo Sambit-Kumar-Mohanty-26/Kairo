@@ -1,17 +1,18 @@
-"""Empirical Evaluation of Kairo's 4-Layer Google-Grade Hybrid Engine.
+"""Empirical Evaluation of Kairo's 4-Layer Hybrid Engine Across Multiple Datasets.
 
 Evaluates:
-1. Layer 1: Behavioral Invariants (Deterministic physical network laws)
-2. Layer 2: Unsupervised Anomaly Baselines (Local site calibration)
-3. Layer 3: Accelerated Multi-Cloud Cascade ML
-4. Layer 4: Global Threat Intelligence Reputation Feed
+- Layer 1: Behavioral Invariants (kairo_ml.rules)
+- Layer 2: Unsupervised Anomaly Baselines (kairo_ml.anomaly)
+- Layer 3: Two-Stage Cascade ML (kairo_ml.cascade)
+- Layer 4: In-Memory IP Reputation / Threat Intel (kairo_ml.threat_intel)
 
-Tested across:
-- Dataset A: CSE-CIC-IDS2018 (Amazon AWS Virtualized Cloud, 2018)
-- Dataset B: ToN-IoT (Smart Devices / ScienceDirect 2026 Paper)
+Saves reproducible results to ml/artifacts/multidomain_benchmark.json.
 """
 
+from __future__ import annotations
+
 import json
+from pathlib import Path
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, f1_score
@@ -19,49 +20,66 @@ from kairo_ml.config import ARTIFACTS
 from kairo_ml.hybrid import hybrid_predict
 from kairo_ml.eval_cicids2018 import MAP_2018_TO_KAIRO, LABEL_MAP_2018
 
-def run_evaluation():
+
+def run_evaluation() -> dict:
     print("=" * 75)
-    print(" KAIRO 4-LAYER HYBRID ENGINE BENCHMARK (GOOGLE-GRADE NIDS)")
+    print(" KAIRO 4-LAYER HYBRID ENGINE MULTI-DOMAIN BENCHMARK")
     print("=" * 75)
+
+    results = {}
 
     # -------------------------------------------------------------
-    # Test 1: CSE-CIC-IDS2018 (AWS Cloud 2018 Traffic - 17,095 flows)
+    # 1. Benchmark on CSE-CIC-IDS2018 (AWS Cloud Infrastructure)
     # -------------------------------------------------------------
-    print("\n[1/2] Benchmarking 4-Layer Hybrid on CSE-CIC-IDS2018 (AWS Cloud)...")
-    df_aws = pd.read_csv("ml/data/cse_cicids2018_test_17k.csv", low_memory=False)
-    df_aws["clean_label"] = df_aws["label"].map(LABEL_MAP_2018)
-    valid_aws = df_aws[df_aws["clean_label"].notna()].copy()
-    renamed_aws = valid_aws.rename(columns=MAP_2018_TO_KAIRO)
+    aws_path = Path("ml/data/cse_cicids2018_test_17k.csv")
+    if aws_path.exists():
+        print("\n[1] Evaluating on CSE-CIC-IDS2018 (AWS Cloud, 17,095 flows)...")
+        df_aws = pd.read_csv(aws_path, low_memory=False)
+        df_aws["clean_label"] = df_aws["label"].map(LABEL_MAP_2018)
+        valid_aws = df_aws[df_aws["clean_label"].notna()].copy()
+        renamed_aws = valid_aws.rename(columns=MAP_2018_TO_KAIRO)
 
-    flows_aws = renamed_aws.to_dict(orient="records")
-    y_true_aws = renamed_aws["clean_label"].to_numpy()
+        flows_aws = renamed_aws.to_dict(orient="records")
+        y_true_aws = renamed_aws["clean_label"].to_numpy()
 
-    # Run 4-Layer Hybrid
-    verdicts_aws = hybrid_predict(flows_aws)
-    y_pred_aws = np.array([v["attack"] for v in verdicts_aws])
-    layers_aws = pd.Series([v["layer"] for v in verdicts_aws]).value_counts()
+        verdicts_aws = hybrid_predict(flows_aws)
+        y_pred_aws = np.array([v["attack"] for v in verdicts_aws])
+        layers_aws = {str(k): int(v) for k, v in pd.Series([v["layer"] for v in verdicts_aws]).value_counts().items()}
 
-    classes_aws = sorted(list(set(y_true_aws)))
-    acc_aws = accuracy_score(y_true_aws, y_pred_aws)
-    f1_aws = f1_score(y_true_aws, y_pred_aws, labels=classes_aws, average="macro", zero_division=0)
+        classes_aws = sorted(list(set(y_true_aws)))
+        acc_aws = float(accuracy_score(y_true_aws, y_pred_aws))
+        f1_aws = float(f1_score(y_true_aws, y_pred_aws, labels=classes_aws, average="macro", zero_division=0))
+        cr_aws = classification_report(y_true_aws, y_pred_aws, labels=classes_aws, output_dict=True, zero_division=0)
 
-    print(f"  Overall Accuracy : {acc_aws * 100:.2f}%")
-    print(f"  Macro-F1 Score   : {f1_aws * 100:.2f}%")
-    print("\n  Detection Attribution by Defense Layer:")
-    for layer_name, cnt in layers_aws.items():
-        print(f"   * {layer_name:<35}: {cnt:,} flows")
+        print(f"  Overall Accuracy : {acc_aws * 100:.2f}%")
+        print(f"  Macro-F1 Score   : {f1_aws * 100:.2f}%")
+        print("  Attribution by Layer:")
+        for l_name, cnt in layers_aws.items():
+            print(f"    - {l_name}: {cnt:,} flows")
 
-    print("\n  Per-Class Performance on AWS Cloud:")
-    rep_aws = classification_report(y_true_aws, y_pred_aws, labels=classes_aws, digits=4, zero_division=0)
-    for line in rep_aws.splitlines():
-        print("   " + line)
+        results["CSE-CIC-IDS2018"] = {
+            "environment": "Amazon AWS Cloud",
+            "total_flows": len(flows_aws),
+            "overall_accuracy": round(acc_aws, 4),
+            "macro_f1": round(f1_aws, 4),
+            "layer_attribution": layers_aws,
+            "classes": classes_aws,
+            "brute_force_recall": round(float(cr_aws.get("Brute Force", {}).get("recall", 0.0)), 4),
+            "ddos_f1": round(float(cr_aws.get("DDoS", {}).get("f1-score", 0.0)), 4),
+        }
+    else:
+        print(f"\n[1] Skipping CSE-CIC-IDS2018 ({aws_path} not found)")
 
-    print("\n" + "=" * 75)
-    print(" 4-LAYER HYBRID ENGINE SUMMARY")
-    print("=" * 75)
-    print(f" 1. Defense-in-Depth works: High-throughput volumetric attacks intercepted by Layer 1")
-    print(f" 2. Zero-Shot cloud transfer stabilized without requiring manual customer labeling")
-    print(f" 3. Defense layers successfully logged in audit trail: Layer 1, 2, 3, 4")
+    # -------------------------------------------------------------
+    # Save benchmark artifact to ml/artifacts/multidomain_benchmark.json
+    # -------------------------------------------------------------
+    out_file = ARTIFACTS / "multidomain_benchmark.json"
+    with open(out_file, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=2)
+    print(f"\n[OK] Benchmark artifact saved to: {out_file}")
+
+    return results
+
 
 if __name__ == "__main__":
     run_evaluation()

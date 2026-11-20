@@ -1,0 +1,20 @@
+{
+  "CSE-CIC-IDS2018": {
+    "environment": "Amazon AWS Cloud",
+    "total_flows": 17095,
+    "overall_accuracy": 0.7562,
+    "macro_f1": 0.754,
+    "layer_attribution": {
+      "Layer 1 (Behavioral Invariant)": 12187,
+      "Layer 3 (Pretrained ML Cascade)": 4908
+    },
+    "classes": [
+      "Botnet",
+      "Brute Force",
+      "DDoS",
+      "Normal"
+    ],
+    "brute_force_recall": 1.0,
+    "ddos_f1": 0.7829
+  }
+}
