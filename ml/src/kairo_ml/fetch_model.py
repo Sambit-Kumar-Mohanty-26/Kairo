@@ -60,7 +60,11 @@ def fetch(url: str, dest=MODEL_PATH, token: str = "", sha256: str = "") -> int:
     actual = digest.hexdigest()
     if actual.lower() != sha256.strip().lower():
         part.unlink()
-        raise ValueError("downloaded model checksum does not match KAIRO_MODEL_SHA256")
+        raise ValueError(
+            f"downloaded model checksum does not match KAIRO_MODEL_SHA256.\n"
+            f"  Expected from env:   {sha256.strip().lower()}\n"
+            f"  Actual downloaded:   {actual.lower()}"
+        )
     part.replace(dest)
     return size
 
