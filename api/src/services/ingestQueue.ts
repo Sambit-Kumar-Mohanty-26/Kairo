@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import { prisma } from "../db.js";
 import { classify, Verdict } from "../model.js";
+import { mitigationService } from "./mitigationService.js";
 
 export interface FlowItem {
   id: string;
@@ -270,6 +271,29 @@ export class IngestQueueService extends EventEmitter {
         },
       }),
     ]);
+
+    // Active IPS Automated Quarantine: Drop offending IPs with Critical Risk (>= 88)
+    const criticalAttacks = detections.filter((d) => d.risk >= 88 && d.sourceIp);
+    if (criticalAttacks.length > 0) {
+      const uniqueIps = Array.from(new Set(criticalAttacks.map((d) => d.sourceIp)));
+      for (const ip of uniqueIps) {
+        const attackMeta = criticalAttacks.find((d) => d.sourceIp === ip);
+        mitigationService
+          .quarantineIp({
+            organizationId,
+            sourceIp: ip,
+            reason: "AUTOMATED_POLICY_CRITICAL_RISK",
+            attack: attackMeta?.attack,
+            risk: attackMeta?.risk,
+            severity: attackMeta?.severity,
+            flowId: attackMeta?.flowId,
+            sensorId,
+          })
+          .catch((err) => {
+            console.error(`[IPS Quarantine] Failed to auto-quarantine ${ip}:`, err?.message || err);
+          });
+      }
+    }
 
     return { accepted: flows.length, attacks: detections.length };
   }

@@ -145,3 +145,40 @@ export const addCustomIndicator = (indicator: string, reason?: string) =>
     method: "POST",
     body: JSON.stringify({ indicator, reason }),
   });
+
+/* Active Mitigation (IPS Quarantine) */
+export interface QuarantineRule {
+  id: string;
+  sourceIp: string;
+  reason: string;
+  attack?: string | null;
+  risk: number;
+  severity?: string | null;
+  status: "active" | "released" | "expired";
+  createdAt: string;
+  unblockedAt?: string | null;
+}
+
+export const getQuarantineRules = (status?: string) =>
+  authed<{ rules: QuarantineRule[] }>(`/mitigation/rules${status ? `?status=${status}` : ""}`);
+
+export const getQuarantineStats = () =>
+  authed<{
+    activeBlocks: number;
+    releasedBlocks: number;
+    automatedBlocks: number;
+    recentBlocks: Array<{ id: string; sourceIp: string; attack?: string; risk: number; status: string; createdAt: string }>;
+    firewallDriver: string;
+  }>("/mitigation/status");
+
+export const quarantineIp = (sourceIp: string, reason = "MANUAL_ANALYST_BLOCK", risk = 90, attack?: string) =>
+  authed<{ rule: QuarantineRule; driverResult: any; layer4Synced: boolean }>("/mitigation/block", {
+    method: "POST",
+    body: JSON.stringify({ sourceIp, reason, risk, attack }),
+  });
+
+export const releaseIp = (ruleId?: string, sourceIp?: string) =>
+  authed<{ rule: QuarantineRule; driverResult: any }>("/mitigation/unblock", {
+    method: "POST",
+    body: JSON.stringify({ ruleId, sourceIp }),
+  });

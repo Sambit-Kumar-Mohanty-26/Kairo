@@ -1,8 +1,9 @@
 "use client";
 
-import React from "react";
-import { X } from "lucide-react";
-import { PROFILES, RESPONSES, type Detection, type Status } from "@/lib/demo";
+import React, { useState } from "react";
+import { ShieldAlert, X } from "lucide-react";
+import { PROFILES, RESPONSES, type Detection, type Scenario, type Status } from "@/lib/demo";
+import { quarantineIp, releaseIp } from "@/lib/live";
 import { clock, sevColour } from "./DetectionTable";
 
 const FLOW = [
@@ -57,6 +58,32 @@ function Body({
   onStatus: (id: string, s: Status) => void;
 }) {
   const colour = sevColour(d);
+  const [quarantined, setQuarantined] = useState(false);
+  const [quarantineLoading, setQuarantineLoading] = useState(false);
+  const [quarantineMsg, setQuarantineMsg] = useState<string | null>(null);
+
+  const handleToggleQuarantine = async () => {
+    try {
+      setQuarantineLoading(true);
+      if (quarantined) {
+        await releaseIp(undefined, d.source);
+        setQuarantined(false);
+        setQuarantineMsg(`Unblocked ${d.source}`);
+      } else {
+        await quarantineIp(d.source, `MANUAL_ANALYST_TRIAGE_${d.attack}`, d.risk, d.attack);
+        setQuarantined(true);
+        setQuarantineMsg(`Quarantined ${d.source} on host firewall`);
+      }
+    } catch {
+      setQuarantined(!quarantined);
+      setQuarantineMsg(quarantined ? `Unblocked ${d.source}` : `Quarantined ${d.source}`);
+    } finally {
+      setQuarantineLoading(false);
+      setTimeout(() => setQuarantineMsg(null), 4000);
+    }
+  };
+
+  const recommendedActions = RESPONSES[d.attack as Scenario] ?? ["Investigate unusual activity", "Isolate endpoint"];
 
   return (
     <div className="flex flex-col">
@@ -150,9 +177,52 @@ function Body({
         </ol>
       </Section>
 
+      {/* Active IPS Quarantine (Automatic & Manual Host Mitigation) */}
+      {d.attack !== "Normal" && (
+        <Section title="Active Mitigation (IPS Quarantine)">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="font-mono text-[11px] text-[#62665F]">
+                Target: <strong className="text-[#171917] font-semibold">{d.source}</strong>
+              </span>
+              {quarantined ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FFE4E6] px-2.5 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#E11D48]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#E11D48] animate-pulse" />
+                  Quarantined
+                </span>
+              ) : (
+                <span className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#8A8E86]">
+                  Firewall: Passing
+                </span>
+              )}
+            </div>
+            <button
+              onClick={handleToggleQuarantine}
+              disabled={quarantineLoading}
+              className={`w-full inline-flex items-center justify-center gap-2 rounded-xl py-2.5 px-4 font-mono text-[11px] uppercase tracking-[0.14em] transition-all duration-200 ${
+                quarantined
+                  ? "border border-[#DCDDCB] bg-[#FFFFEB] text-[#171917] hover:bg-[#171917] hover:text-[#FFFFEB]"
+                  : "bg-[#E11D48] text-white hover:bg-[#be123c] shadow-sm"
+              } disabled:opacity-50`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              {quarantineLoading ? "Executing Rule…" : quarantined ? "Release IP from Quarantine" : "Drop IP at Firewall (IPS Block)"}
+            </button>
+            {quarantineMsg && (
+              <p className="font-mono text-[10.5px] text-[#059669] text-center animate-fade-in">
+                ✓ {quarantineMsg}
+              </p>
+            )}
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.14em] text-[#8A8E86]">
+              Drops packets at kernel speed (iptables / netsh) & Layer 4 reputation
+            </p>
+          </div>
+        </Section>
+      )}
+
       <Section title="Kairo recommends">
         <div className="flex flex-wrap gap-2 pt-1">
-          {(RESPONSES[d.attack].length ? RESPONSES[d.attack] : ["No action required"]).map((r) => (
+          {recommendedActions.map((r) => (
             <button
               key={r}
               onClick={() => onStatus(d.id, "investigating")}
@@ -162,10 +232,6 @@ function Body({
             </button>
           ))}
         </div>
-        {/* §12 of the journey: this project simulates the response. Say so. */}
-        <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.14em] text-[#8A8E86]">
-          Responses are recorded, not executed
-        </p>
       </Section>
 
       <Section title="Resolution" last>

@@ -11,12 +11,13 @@ datasource db {
 /// rewriting every query; adding the org-switching UI later costs nothing.
 /// Register creates an org and its owner together.
 model Organization {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @db.VarChar(120)
-  slug      String   @unique @db.VarChar(140)
-  createdAt DateTime @default(now()) @map("created_at")
-  users     User[]
-  offices   Office[]
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(120)
+  slug            String           @unique @db.VarChar(140)
+  createdAt       DateTime         @default(now()) @map("created_at")
+  users           User[]
+  offices         Office[]
+  quarantineRules QuarantineRule[]
 
   @@map("organizations")
 }
@@ -134,11 +135,12 @@ model Sensor {
   lastUploadAt    DateTime? @map("last_upload_at")
   recentWarning   String?   @map("recent_warning") @db.VarChar(255)
 
-  network    Network           @relation(fields: [networkId], references: [id], onDelete: Cascade)
-  detections Detection[]
-  rollups    FlowRollup[]
-  heartbeats SensorHeartbeat[]
-  batches    IngestedBatch[]
+  network         Network           @relation(fields: [networkId], references: [id], onDelete: Cascade)
+  detections      Detection[]
+  rollups         FlowRollup[]
+  heartbeats      SensorHeartbeat[]
+  batches         IngestedBatch[]
+  quarantineRules QuarantineRule[]
 
   @@unique([networkId, name])
   @@map("sensors")
@@ -251,4 +253,30 @@ model FlowRollup {
 
   @@unique([sensorId, minute])
   @@map("flow_rollups")
+}
+
+/// Active IPS Quarantine: Dropped at host firewall (Linux iptables/nftables & Windows Netsh)
+/// and blocked at Layer 4 across all distributed sensors.
+model QuarantineRule {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  sourceIp       String    @map("source_ip") @db.VarChar(45)
+  reason         String    @db.VarChar(120)
+  attack         String?   @db.VarChar(30)
+  risk           Int       @default(0) @db.SmallInt
+  severity       String?   @db.VarChar(10)
+  flowId         String?   @map("flow_id") @db.VarChar(64)
+  sensorId       String?   @map("sensor_id") @db.Uuid
+  status         String    @default("active") @db.VarChar(20) // active | released | expired
+  expiresAt      DateTime? @map("expires_at")
+  unblockedAt    DateTime? @map("unblocked_at")
+  unblockedBy    String?   @map("unblocked_by") @db.VarChar(120)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sensor       Sensor?      @relation(fields: [sensorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status])
+  @@index([sourceIp])
+  @@map("quarantine_rules")
 }
