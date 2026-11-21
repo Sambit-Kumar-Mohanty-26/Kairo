@@ -215,3 +215,25 @@ export const testWebhook = (url: string, format = "discord") =>
     method: "POST",
     body: JSON.stringify({ url, format }),
   });
+
+/* SOC 2 Immutable Audit Trail */
+export interface AuditLogItem {
+  id: string;
+  actorEmail: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string | null;
+  details?: Record<string, any> | null;
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
+export const getAuditLogs = (params?: { action?: string; limit?: number; offset?: number }) => {
+  const query = new URLSearchParams();
+  if (params?.action) query.set("action", params.action);
+  if (params?.limit) query.set("limit", String(params.limit));
+  if (params?.offset) query.set("offset", String(params.offset));
+  const qs = query.toString() ? `?${query.toString()}` : "";
+  return authed<{ total: number; logs: AuditLogItem[] }>(`/audit/logs${qs}`);
+};

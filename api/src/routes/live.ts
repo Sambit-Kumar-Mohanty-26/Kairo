@@ -3,6 +3,8 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { HttpError, authGuard, requireRole, route, validate } from "../middleware.js";
 import { computeSensorHealth, isLive } from "../sensor.js";
+import { auditService } from "../services/auditService.js";
+import { feedbackQueueService } from "../services/feedbackQueue.js";
 
 /* The console's read model for Live Mode. One request returns everything the
    dashboard renders, in the same shape the fixtures had — so switching modes
@@ -116,15 +118,48 @@ liveRouter.patch(
   route(async (req, res) => {
     const { status } = validate(z.object({ status: z.enum(STATUSES) }), req.body);
 
-    const { count } = await prisma.detection.updateMany({
+    const detection = await prisma.detection.findFirst({
       where: { id: req.params.id, organizationId: req.user!.organizationId },
+    });
+    if (!detection) throw new HttpError(404, "No such detection.");
+
+    await prisma.detection.update({
+      where: { id: req.params.id },
       data: { status },
     });
-    if (!count) throw new HttpError(404, "No such detection.");
 
     await prisma.detectionEvent.create({
       data: { detectionId: req.params.id, userId: req.user!.id, status },
     });
+
+    // Closed-loop fine-tuning: if analyst marked false-positive or resolved, encrypt and enqueue
+    if (status === "false-positive" || status === "resolved") {
+      try {
+        await feedbackQueueService.enqueueFeedback({
+          organizationId: req.user!.organizationId,
+          detectionId: req.params.id,
+          status,
+          features: detection.features,
+          sourceIp: detection.sourceIp,
+          targetIp: detection.targetIp,
+          attack: detection.attack,
+        });
+      } catch (err) {
+        console.error("Failed to enqueue feedback flow:", err);
+      }
+    }
+
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "ALERT_TRIAGE_MUTATED",
+      resourceType: "Detection",
+      resourceId: req.params.id,
+      details: { newStatus: status, feedbackQueued: status === "false-positive" || status === "resolved" },
+    });
+
     res.json({ id: req.params.id, status });
   }),
 );

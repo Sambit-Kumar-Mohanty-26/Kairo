@@ -8,8 +8,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../db.js";
-import { authGuard, route, validate } from "../middleware.js";
+import { authGuard, requireRole, route, validate } from "../middleware.js";
 import { notificationDispatcher } from "../services/notificationDispatcher.js";
+import { auditService } from "../services/auditService.js";
 
 export const notificationRouter = Router();
 notificationRouter.use(authGuard);
@@ -46,6 +47,7 @@ notificationRouter.get(
  */
 notificationRouter.post(
   "/webhooks",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     const body = validate(webhookCreateSchema, req.body);
     const webhook = await prisma.webhookEndpoint.create({
@@ -59,6 +61,16 @@ notificationRouter.post(
         enabled: true,
       },
     });
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "WEBHOOK_ENDPOINT_CREATED",
+      resourceType: "WebhookEndpoint",
+      resourceId: webhook.id,
+      details: { name: body.name, format: body.format, minRisk: body.minRisk },
+    });
     res.status(201).json({ webhook });
   }),
 );
@@ -68,12 +80,22 @@ notificationRouter.post(
  */
 notificationRouter.delete(
   "/webhooks/:id",
+  requireRole("owner", "admin"),
   route(async (req, res) => {
     await prisma.webhookEndpoint.deleteMany({
       where: {
         id: req.params.id,
         organizationId: req.user!.organizationId,
       },
+    });
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "WEBHOOK_ENDPOINT_DELETED",
+      resourceType: "WebhookEndpoint",
+      resourceId: req.params.id,
     });
     res.json({ ok: true });
   }),

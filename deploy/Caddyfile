@@ -1,0 +1,51 @@
+# Kairo Enterprise Reverse Proxy & Ingress Gateway
+:80 {
+    # Health check passthrough
+    handle /health* {
+        reverse_proxy kairo-api:8000
+    }
+
+    # API endpoints
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy kairo-api:8000
+    }
+
+    # Auth and fleet endpoints
+    handle /auth/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    handle /live/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    handle /mitigation/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    handle /notifications/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    handle /audit/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    handle /feedback/* {
+        reverse_proxy kairo-api:8000
+    }
+
+    # Web Console frontend
+    handle /* {
+        reverse_proxy kairo-frontend:3000
+    }
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { HttpError, authGuard, requireRole, route, validate } from "../middleware.js";
 import { computeSensorHealth, isLive, newSensorKey } from "../sensor.js";
+import { auditService } from "../services/auditService.js";
 
 /* Offices, networks and sensors — the estate the console draws and the agent
    registers against. Guarded, unlike /ml: Test Mode is a demo anyone may click
@@ -314,6 +315,18 @@ fleetRouter.post(
       }),
       "A sensor with that name already exists on this network.",
     );
+
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "SENSOR_MINTED",
+      resourceType: "Sensor",
+      resourceId: sensor.id,
+      details: { name: body.name, networkId: network.id },
+    });
+
     res.status(201).json({ ...serialiseSensor(sensor), key: key.raw });
   }),
 );
@@ -357,6 +370,17 @@ fleetRouter.delete(
       data: { revokedAt: new Date(), status: "revoked" },
     });
     if (!count) throw new HttpError(404, "No such sensor.");
+
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "SENSOR_REVOKED",
+      resourceType: "Sensor",
+      resourceId: req.params.id,
+    });
+
     res.status(204).end();
   }),
 );

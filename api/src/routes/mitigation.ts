@@ -7,8 +7,9 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { authGuard, route, validate } from "../middleware.js";
+import { authGuard, requireRole, route, validate } from "../middleware.js";
 import { mitigationService } from "../services/mitigationService.js";
+import { auditService } from "../services/auditService.js";
 
 export const mitigationRouter = Router();
 mitigationRouter.use(authGuard);
@@ -58,6 +59,7 @@ mitigationRouter.get(
  */
 mitigationRouter.post(
   "/block",
+  requireRole("owner", "admin", "analyst"),
   route(async (req, res) => {
     const body = validate(blockSchema, req.body);
     const result = await mitigationService.quarantineIp({
@@ -70,6 +72,21 @@ mitigationRouter.post(
       sensorId: body.sensorId,
       expiresInMinutes: body.expiresInMinutes,
     });
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "IPS_QUARANTINE_ENFORCED",
+      resourceType: "QuarantineRule",
+      resourceId: result.rule.id,
+      details: {
+        sourceIp: body.sourceIp,
+        attack: body.attack,
+        risk: body.risk,
+        driver: result.driverResult.driver,
+      },
+    });
     res.status(201).json(result);
   }),
 );
@@ -79,6 +96,7 @@ mitigationRouter.post(
  */
 mitigationRouter.post(
   "/unblock",
+  requireRole("owner", "admin", "analyst"),
   route(async (req, res) => {
     const body = validate(unblockSchema, req.body);
     const result = await mitigationService.releaseIp({
@@ -86,6 +104,19 @@ mitigationRouter.post(
       ruleId: body.ruleId,
       sourceIp: body.sourceIp,
       unblockedBy: req.user?.email || "admin",
+    });
+    void auditService.log(req, {
+      organizationId: req.user!.organizationId,
+      actorId: req.user!.id,
+      actorEmail: req.user!.email,
+      actorRole: req.user!.role,
+      action: "IPS_QUARANTINE_RELEASED",
+      resourceType: "QuarantineRule",
+      resourceId: result.rule.id,
+      details: {
+        sourceIp: result.rule.sourceIp,
+        releasedBy: req.user!.email,
+      },
     });
     res.json(result);
   }),

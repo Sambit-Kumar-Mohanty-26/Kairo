@@ -19,6 +19,9 @@ model Organization {
   offices         Office[]
   quarantineRules QuarantineRule[]
   webhooks        WebhookEndpoint[]
+  auditLogs       AuditLog[]
+  feedbackFlows   ModelFeedbackFlow[]
+  tenantAdapter   TenantAdapter?
 
   @@map("organizations")
 }
@@ -39,6 +42,7 @@ model User {
   organization        Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
+  auditLogs           AuditLog[]
 
   @@index([organizationId])
   @@map("users")
@@ -301,4 +305,73 @@ model WebhookEndpoint {
 
   @@index([organizationId, enabled])
   @@map("webhook_endpoints")
+}
+
+/// SOC 2 Type II Immutable Audit Trail.
+/// Append-only record of every administrative and security decision.
+model AuditLog {
+  id             String   @id @default(uuid()) @db.Uuid
+  organizationId String   @map("organization_id") @db.Uuid
+  actorId        String?  @map("actor_id") @db.Uuid
+  actorEmail     String   @map("actor_email") @db.VarChar(255)
+  actorRole      String   @map("actor_role") @db.VarChar(30)
+  action         String   @db.VarChar(64)
+  resourceType   String   @map("resource_type") @db.VarChar(64)
+  resourceId     String?  @map("resource_id") @db.VarChar(128)
+  details        Json?
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  userAgent      String?  @map("user_agent") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actor          User?        @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, createdAt])
+  @@index([organizationId, action])
+  @@index([actorEmail])
+  @@map("audit_logs")
+}
+
+/// Closed-Loop Labeling Pipeline: Secure encrypted queue for tenant site-specific continuous learning.
+/// When an analyst marks False Positive or Resolves an alert, the underlying flow feature vector
+/// is encrypted with AES-256-GCM using tenant-derived keys so network characteristics never leak.
+model ModelFeedbackFlow {
+  id                 String    @id @default(uuid()) @db.Uuid
+  organizationId     String    @map("organization_id") @db.Uuid
+  eventId            String?   @map("event_id") @db.VarChar(128)
+  label              String    @db.VarChar(50) // "BENIGN" (false positive) | "MALICIOUS"
+  encryptedFeatures  String    @map("encrypted_features") @db.Text
+  iv                 String    @db.VarChar(64) // 12-byte IV hex
+  tag                String    @db.VarChar(64) // 16-byte auth tag hex
+  flowSummary        String?   @map("flow_summary") @db.VarChar(255)
+  sourceIp           String?   @map("source_ip") @db.VarChar(45)
+  destIp             String?   @map("dest_ip") @db.VarChar(45)
+  status             String    @default("QUEUED") @db.VarChar(20) // QUEUED | ADAPTED | DISCARDED
+  adaptedAt          DateTime? @map("adapted_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([createdAt])
+  @@map("model_feedback_flows")
+}
+
+/// Tenant Site-Specific Adapter model.
+/// Stores calibrated residual weights learned strictly from local tenant feedback
+/// to overcome covariate shift (e.g. 32% shift across environments) without modifying the base cascade.
+model TenantAdapter {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @unique @map("organization_id") @db.Uuid
+  version        Int       @default(1)
+  weightsJson    String    @map("weights_json") @db.Text
+  sampleCount    Int       @default(0) @map("sample_count")
+  fpCount        Int       @default(0) @map("fp_count")
+  tpCount        Int       @default(0) @map("tp_count")
+  lastTrainedAt  DateTime  @default(now()) @map("last_trained_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_adapters")
 }

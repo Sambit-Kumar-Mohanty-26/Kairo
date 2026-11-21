@@ -6,6 +6,8 @@ import { useConsole } from "@/components/dashboard/DemoProvider";
 import FleetPanel from "@/components/dashboard/FleetPanel";
 import ThreatIntelCard from "@/components/dashboard/ThreatIntelCard";
 import WebhookCard from "@/components/dashboard/WebhookCard";
+import AuditLogCard from "@/components/dashboard/AuditLogCard";
+import ContinuousLearningCard from "@/components/dashboard/ContinuousLearningCard";
 import { renameOrg } from "@/lib/live";
 
 /* Steps 2 and 3 of the user journey: name the organisation, add the offices,
@@ -106,10 +108,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* ---- Layer 4 Threat Intelligence Telemetry & Feeds ---- */}
+      {/* ---- Enterprise Telemetry, Webhooks & SOC 2 Audit Trail ---- */}
       <section className="mt-12 space-y-6">
         <ThreatIntelCard />
         <WebhookCard />
+        <ContinuousLearningCard />
+        <AuditLogCard />
       </section>
 
       {/* ---- offices ---- */}

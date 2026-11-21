@@ -1,0 +1,96 @@
+# Kairo Enterprise VPC / On-Premises Edition (100% Air-Gapped Ready)
+# Deploy with: docker compose -f docker-compose.enterprise.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-kairo_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production_98124}
+      POSTGRES_DB: ${POSTGRES_DB:-kairo_enterprise}
+    volumes:
+      - kairo_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kairo_backend
+
+  kairo-ml:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 8001
+      KAIRO_ML_TOKEN: ${KAIRO_ML_TOKEN:-enterprise-ml-token-secret-replace-me}
+      OMP_NUM_THREADS: "2"
+      OPENBLAS_NUM_THREADS: "2"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - kairo_backend
+
+  kairo-api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-kairo_admin}:${POSTGRES_PASSWORD:-change_me_in_production_98124}@postgres:5432/${POSTGRES_DB:-kairo_enterprise}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-kairo-enterprise-jwt-super-secret-random-key-32chars}
+      ML_URL: http://kairo-ml:8001
+      KAIRO_ML_TOKEN: ${KAIRO_ML_TOKEN:-enterprise-ml-token-secret-replace-me}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost,http://127.0.0.1}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kairo-ml:
+        condition: service_healthy
+    networks:
+      - kairo_backend
+      - kairo_ingress
+
+  kairo-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    depends_on:
+      - kairo-api
+    networks:
+      - kairo_backend
+      - kairo_ingress
+
+  kairo-gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - kairo-api
+      - kairo-frontend
+    networks:
+      - kairo_ingress
+
+networks:
+  kairo_backend:
+    internal: true # Air-gapped backend: isolated from host network
+  kairo_ingress:
+
+volumes:
+  kairo_pgdata:
+    driver: local

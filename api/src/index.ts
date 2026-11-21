@@ -4,6 +4,8 @@ import express from "express";
 import { config, googleEnabled } from "./config.js";
 import { errorHandler } from "./middleware.js";
 import { authRouter } from "./routes/auth.js";
+import { auditRouter } from "./routes/audit.js";
+import { feedbackRouter } from "./routes/feedback.js";
 import { fleetRouter } from "./routes/fleet.js";
 import { ingestRouter } from "./routes/ingest.js";
 import { liveRouter } from "./routes/live.js";
@@ -42,6 +44,8 @@ app.use("/live", liveRouter);
 app.use("/ingest", ingestRouter);
 app.use("/mitigation", mitigationRouter);
 app.use("/notifications", notificationRouter);
+app.use("/audit", auditRouter);
+app.use("/feedback", feedbackRouter);
 
 app.use(errorHandler);
 
