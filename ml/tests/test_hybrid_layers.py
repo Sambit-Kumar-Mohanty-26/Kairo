@@ -185,3 +185,57 @@ def test_hybrid_priority_preemption_cascade():
     verdicts = hybrid_predict(flows, model_art=dummy_art)
     assert len(verdicts) == 1
     assert verdicts[0]["layer"] == "Layer 4 (Threat Intelligence)"
+
+
+def test_layer2_anomaly_risk_scoring():
+    from kairo_ml.config import RISK_CEILING, risk_of
+    assert "Anomaly" in RISK_CEILING
+    assert RISK_CEILING["Anomaly"] == 85
+    risk = risk_of("Anomaly", 0.90)
+    assert risk == 76
+    # Also verify fallback safety for any unknown class
+    assert risk_of("CompletelyUnknownZeroDay", 0.80) == 68
+
+
+def test_layer2_auto_calibration_from_model():
+    engine = UnsupervisedBaselineEngine()
+    # Auto-calibrate with mock artifact
+    dummy_art = {
+        "features": ["f1", "f2", "f3"],
+        "classes": ["Normal", "DDoS"],
+        "model": None,
+    }
+    assert engine.calibrate_from_model(dummy_art) is True
+    assert engine.is_calibrated is True
+    # Normal points get scored
+    X_test = np.ones((5, 3), dtype=np.float32) * 10.0
+    scores = engine.score_flows(X_test)
+    assert len(scores) == 5
+    assert np.all(scores >= 0.0) and np.all(scores <= 1.0)
+
+
+def test_layer2_fires_anomaly_without_crashing():
+    from kairo_ml.anomaly import baseline_engine
+    # Calibrate on baseline centered at 10.0 with natural spread
+    rng = np.random.RandomState(42)
+    baseline_engine.fit_baseline(rng.normal(loc=10.0, scale=1.0, size=(400, 3)))
+
+    # Construct extreme outlier flow (1,000x normal) that ML would see as Normal
+    flows = [{"f1": 10000.0, "f2": 10000.0, "f3": 10000.0}]
+    dummy_art = {
+        "features": ["f1", "f2", "f3"],
+        "classes": ["Normal", "DDoS"],
+        "metrics": {"tag": "test-mock"},
+        "_mean": np.zeros(3, dtype=np.float32),
+        "_scale": np.ones(3, dtype=np.float32),
+        "_gate_booster": None,
+        "_namer_booster": None,
+        "model": None,
+    }
+    verdicts = hybrid_predict(flows, model_art=dummy_art)
+    assert len(verdicts) == 1
+    v = verdicts[0]
+    assert v["attack"] == "Anomaly"
+    assert v["layer"] == "Layer 2 (Unsupervised Baseline Anomaly)"
+    assert v["risk"] > 0
+    assert "severity" in v

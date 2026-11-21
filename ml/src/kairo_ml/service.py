@@ -25,6 +25,7 @@ from .infer import load, predict
 from .hybrid import hybrid_predict
 from .registry import get_registry
 from .threat_intel import threat_intel
+from .anomaly import baseline_engine
 
 app = FastAPI(title="Kairo ML", version=__version__)
 ML_TOKEN = os.getenv("KAIRO_ML_TOKEN", "").strip()
@@ -55,7 +56,9 @@ app.add_middleware(
 def preload_model() -> None:
     """Pre-warm model into cache during startup so health checks answer instantly."""
     try:
-        load()
+        art = load()
+        # Calibrate Layer 2 Unsupervised Isolation Forest on normal-traffic sample
+        baseline_engine.calibrate_from_model(art)
     except Exception:
         pass
     if os.getenv("KAIRO_AUTO_SYNC_INTEL", "0").lower() in ("1", "true", "yes"):

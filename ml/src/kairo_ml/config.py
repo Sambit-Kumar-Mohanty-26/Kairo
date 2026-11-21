@@ -77,6 +77,7 @@ RISK_CEILING = {
     "Brute Force": 88,
     "Web Attack": 90,
     "Botnet": 91,
+    "Anomaly": 85,
 }
 
 #: Columns that identify a flow rather than describe it. Training on these
@@ -86,4 +87,5 @@ LEAKY = ["Flow ID", "Source IP", "Destination IP", "Source Port", "Timestamp", "
 
 def risk_of(cls: str, confidence: float) -> int:
     """Risk 0-100 for a verdict. Same formula the console will display."""
-    return round(RISK_CEILING[cls] * confidence)
+    ceiling = RISK_CEILING.get(cls, 85)
+    return round(ceiling * confidence)
