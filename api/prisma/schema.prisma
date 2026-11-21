@@ -18,6 +18,7 @@ model Organization {
   users           User[]
   offices         Office[]
   quarantineRules QuarantineRule[]
+  webhooks        WebhookEndpoint[]
 
   @@map("organizations")
 }
@@ -279,4 +280,25 @@ model QuarantineRule {
   @@index([organizationId, status])
   @@index([sourceIp])
   @@map("quarantine_rules")
+}
+
+/// Webhook alert endpoints (Discord, Slack, Datadog/Splunk SIEM).
+model WebhookEndpoint {
+  id             String    @id @default(uuid()) @db.Uuid
+  organizationId String    @map("organization_id") @db.Uuid
+  name           String    @db.VarChar(120)
+  url            String    @db.VarChar(512)
+  format         String    @default("discord") @db.VarChar(20) // discord | slack | generic
+  secret         String?   @db.VarChar(128)
+  minRisk        Int       @default(70) @map("min_risk") @db.SmallInt
+  enabled        Boolean   @default(true)
+  lastSuccessAt  DateTime? @map("last_success_at")
+  lastFailureAt  DateTime? @map("last_failure_at")
+  failureCount   Int       @default(0) @map("failure_count")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, enabled])
+  @@map("webhook_endpoints")
 }

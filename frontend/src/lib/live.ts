@@ -182,3 +182,36 @@ export const releaseIp = (ruleId?: string, sourceIp?: string) =>
     method: "POST",
     body: JSON.stringify({ ruleId, sourceIp }),
   });
+
+/* Enterprise Webhooks & SIEM */
+export interface WebhookEndpoint {
+  id: string;
+  name: string;
+  url: string;
+  format: "discord" | "slack" | "generic";
+  minRisk: number;
+  enabled: boolean;
+  lastSuccessAt?: string | null;
+  lastFailureAt?: string | null;
+  createdAt: string;
+}
+
+export const getWebhooks = () => authed<{ webhooks: WebhookEndpoint[] }>("/notifications/webhooks");
+
+export const createWebhook = (data: { name: string; url: string; format?: string; minRisk?: number; secret?: string }) =>
+  authed<{ webhook: WebhookEndpoint }>("/notifications/webhooks", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+
+export const deleteWebhook = (id: string) =>
+  authed<{ ok: boolean }>(`/notifications/webhooks/${id}`, { method: "DELETE" });
+
+export const toggleWebhook = (id: string) =>
+  authed<{ webhook: WebhookEndpoint }>(`/notifications/webhooks/${id}/toggle`, { method: "PATCH" });
+
+export const testWebhook = (url: string, format = "discord") =>
+  authed<{ success: boolean; statusCode?: number; error?: string }>("/notifications/test", {
+    method: "POST",
+    body: JSON.stringify({ url, format }),
+  });

@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { prisma } from "../db.js";
 import { classify, Verdict } from "../model.js";
 import { mitigationService } from "./mitigationService.js";
+import { notificationDispatcher } from "./notificationDispatcher.js";
 
 export interface FlowItem {
   id: string;
@@ -293,6 +294,31 @@ export class IngestQueueService extends EventEmitter {
             console.error(`[IPS Quarantine] Failed to auto-quarantine ${ip}:`, err?.message || err);
           });
       }
+    }
+
+    // Enterprise Webhooks & SIEM: Dispatch real-time incident notifications
+    const alertsToDispatch = detections.filter((d) => d.risk >= 70);
+    if (alertsToDispatch.length > 0) {
+      const topAlert = alertsToDispatch.sort((a, b) => b.risk - a.risk)[0];
+      notificationDispatcher
+        .dispatchAlert({
+          id: topAlert.flowId,
+          organizationId,
+          sourceIp: topAlert.sourceIp,
+          sourcePort: topAlert.sourcePort,
+          targetIp: topAlert.targetIp,
+          targetPort: topAlert.targetPort,
+          attack: topAlert.attack,
+          risk: topAlert.risk,
+          severity: topAlert.severity,
+          confidence: topAlert.confidence,
+          protocol: topAlert.protocol,
+          quarantined: topAlert.risk >= 88,
+          startedAt: topAlert.startedAt,
+        })
+        .catch((err) => {
+          console.error("[Notification Dispatcher] Failed to dispatch alert:", err?.message || err);
+        });
     }
 
     return { accepted: flows.length, attacks: detections.length };

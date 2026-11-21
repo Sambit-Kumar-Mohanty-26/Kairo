@@ -9,6 +9,7 @@ import { ingestRouter } from "./routes/ingest.js";
 import { liveRouter } from "./routes/live.js";
 import { mlRouter } from "./routes/ml.js";
 import { mitigationRouter } from "./routes/mitigation.js";
+import { notificationRouter } from "./routes/notifications.js";
 import { oauthRouter } from "./routes/oauth.js";
 
 const app = express();
@@ -40,6 +41,7 @@ app.use("/fleet", fleetRouter);
 app.use("/live", liveRouter);
 app.use("/ingest", ingestRouter);
 app.use("/mitigation", mitigationRouter);
+app.use("/notifications", notificationRouter);
 
 app.use(errorHandler);
 

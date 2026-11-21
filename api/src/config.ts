@@ -51,6 +51,7 @@ export const config = {
 
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   emailFrom: process.env.EMAIL_FROM ?? "Kairo <onboarding@resend.dev>",
+  discordWebhookUrl: process.env.DISCORD_WEBHOOK_URL ?? "",
 };
 
 export const googleEnabled = Boolean(config.googleClientId && config.googleClientSecret);

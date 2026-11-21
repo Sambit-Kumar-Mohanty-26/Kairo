@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 import { useConsole } from "@/components/dashboard/DemoProvider";
 import FleetPanel from "@/components/dashboard/FleetPanel";
 import ThreatIntelCard from "@/components/dashboard/ThreatIntelCard";
+import WebhookCard from "@/components/dashboard/WebhookCard";
 import { renameOrg } from "@/lib/live";
 
 /* Steps 2 and 3 of the user journey: name the organisation, add the offices,
@@ -106,8 +107,9 @@ export default function SettingsPage() {
       </section>
 
       {/* ---- Layer 4 Threat Intelligence Telemetry & Feeds ---- */}
-      <section className="mt-12">
+      <section className="mt-12 space-y-6">
         <ThreatIntelCard />
+        <WebhookCard />
       </section>
 
       {/* ---- offices ---- */}
