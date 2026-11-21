@@ -122,3 +122,26 @@ export const getSensorHistory = (sensorId: string) =>
       warning?: string | null;
     }>;
   }>(`/fleet/sensors/${sensorId}/history`);
+
+export interface ThreatIntelStatus {
+  total_ips: number;
+  total_subnets: number;
+  last_synced_at: string | null;
+  cache_file: string;
+  cache_exists: boolean;
+  feeds_configured: string[];
+  background_sync_active: boolean;
+}
+
+export const getThreatIntelStatus = () => authed<ThreatIntelStatus>("/ml/threat-intel");
+
+export const syncThreatIntel = () =>
+  authed<{ ok: boolean; new_ips_fetched: number; total_ips: number }>("/ml/threat-intel/sync", {
+    method: "POST",
+  });
+
+export const addCustomIndicator = (indicator: string, reason?: string) =>
+  authed<{ ok: boolean; indicator: string }>("/ml/threat-intel/indicators", {
+    method: "POST",
+    body: JSON.stringify({ indicator, reason }),
+  });

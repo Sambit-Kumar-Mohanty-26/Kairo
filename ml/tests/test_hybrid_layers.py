@@ -94,6 +94,54 @@ def test_layer4_threat_intel_subnet():
     assert hit["rule"] == "THREAT_INTEL_MALICIOUS_SUBNET"
 
 
+def test_layer4_threat_intel_caching_and_persistence(tmp_path):
+    cache_file = tmp_path / "test_intel_cache.json"
+    intel = ThreatIntelEngine(cache_path=cache_file, auto_load_cache=False)
+    intel.bad_ips.add("203.0.113.50")
+    intel._save_to_cache()
+    assert cache_file.exists()
+
+    # Re-instantiate pointing to the same cache file
+    intel2 = ThreatIntelEngine(cache_path=cache_file, auto_load_cache=True)
+    assert intel2.check_ip("203.0.113.50") is not None
+    assert intel2.check_ip("203.0.113.50")["attack"] == "Botnet"
+
+
+def test_layer4_threat_intel_custom_indicator_addition(tmp_path):
+    cache_file = tmp_path / "custom_cache.json"
+    intel = ThreatIntelEngine(cache_path=cache_file, auto_load_cache=False)
+    # Add custom IP
+    assert intel.add_custom_indicator("185.220.101.5") is True
+    assert intel.check_ip("185.220.101.5") is not None
+
+    # Add custom CIDR
+    assert intel.add_custom_indicator("192.0.2.0/24") is True
+    assert intel.check_ip("192.0.2.45") is not None
+
+    # Invalid input rejection
+    assert intel.add_custom_indicator("not-an-ip") is False
+
+
+def test_layer4_threat_intel_sync_feeds_offline_resilience(tmp_path):
+    cache_file = tmp_path / "offline_cache.json"
+    intel = ThreatIntelEngine(cache_path=cache_file, auto_load_cache=False)
+    # Attempting to sync an unreachable domain must fail gracefully and not throw
+    result = intel.sync_feeds(feeds=["http://127.0.0.1:54321/nonexistent.txt"], timeout=0.5)
+    assert result["ok"] is False or len(result["errors"]) > 0
+    # Seed indicators remain intact
+    assert intel.check_ip("198.51.100.25") is not None
+
+
+def test_layer4_threat_intel_background_sync_lifecycle(tmp_path):
+    cache_file = tmp_path / "bg_cache.json"
+    intel = ThreatIntelEngine(cache_path=cache_file, auto_load_cache=False)
+    thread = intel.start_background_sync(interval_seconds=3600.0)
+    assert thread.is_alive()
+    assert intel.get_status()["background_sync_active"] is True
+    intel.stop_background_sync()
+    assert intel.get_status()["background_sync_active"] is False
+
+
 def test_layer2_unsupervised_baseline():
     engine = UnsupervisedBaselineEngine(contamination=0.05, random_state=42)
     # Generate 200 normal training flows centered around 10

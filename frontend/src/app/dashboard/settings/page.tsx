@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useConsole } from "@/components/dashboard/DemoProvider";
 import FleetPanel from "@/components/dashboard/FleetPanel";
+import ThreatIntelCard from "@/components/dashboard/ThreatIntelCard";
 import { renameOrg } from "@/lib/live";
 
 /* Steps 2 and 3 of the user journey: name the organisation, add the offices,
@@ -102,6 +103,11 @@ export default function SettingsPage() {
             {live ? "On every alert. Saved when you click away" : "Shown in the scope bar"}
           </span>
         </div>
+      </section>
+
+      {/* ---- Layer 4 Threat Intelligence Telemetry & Feeds ---- */}
+      <section className="mt-12">
+        <ThreatIntelCard />
       </section>
 
       {/* ---- offices ---- */}

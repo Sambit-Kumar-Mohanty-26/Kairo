@@ -287,6 +287,21 @@ def test_binary_threshold_calibration_override():
     load.cache_clear()
 
 
+def test_threat_intel_service_endpoints():
+    import kairo_ml.service as svc
+    from kairo_ml.threat_intel import threat_intel
+
+    status = svc.threat_intel_status()
+    assert "total_ips" in status
+    assert "total_subnets" in status
+    assert status["total_ips"] >= 4
+
+    req = svc.ThreatIndicatorRequest(indicator="198.51.100.77", reason="test")
+    res = svc.threat_intel_add_indicator(req)
+    assert res["ok"] is True
+    assert threat_intel.check_ip("198.51.100.77") is not None
+
+
 if __name__ == "__main__":
     # definition order, not alphabetical — the later checks need the model the
     # round-trip check trains

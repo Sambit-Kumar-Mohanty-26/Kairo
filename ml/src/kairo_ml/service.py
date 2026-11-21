@@ -24,6 +24,7 @@ from .config import ARTIFACTS, METRICS_PATH, MODEL_PATH
 from .infer import load, predict
 from .hybrid import hybrid_predict
 from .registry import get_registry
+from .threat_intel import threat_intel
 
 app = FastAPI(title="Kairo ML", version=__version__)
 ML_TOKEN = os.getenv("KAIRO_ML_TOKEN", "").strip()
@@ -57,6 +58,11 @@ def preload_model() -> None:
         load()
     except Exception:
         pass
+    if os.getenv("KAIRO_AUTO_SYNC_INTEL", "0").lower() in ("1", "true", "yes"):
+        try:
+            threat_intel.start_background_sync()
+        except Exception:
+            pass
 
 
 @app.get("/")
@@ -81,6 +87,11 @@ class ValidateRequest(BaseModel):
 
 class CanaryTrafficRequest(BaseModel):
     traffic_pct: float = Field(..., ge=0.0, le=100.0)
+
+
+class ThreatIndicatorRequest(BaseModel):
+    indicator: str
+    reason: str = "custom"
 
 
 @app.get("/health")
@@ -223,3 +234,24 @@ def predict_route(req: PredictRequest) -> dict:
     except ValueError as e:
         # a malformed flow is the caller's bug, not a server fault
         raise HTTPException(422, str(e)) from e
+
+
+@app.get("/threat-intel/status", dependencies=[Depends(require_ml_auth)])
+def threat_intel_status() -> dict:
+    """Operational status and metrics of Layer 4 Threat Intelligence engine."""
+    return threat_intel.get_status()
+
+
+@app.post("/threat-intel/sync", dependencies=[Depends(require_ml_auth)])
+def threat_intel_sync() -> dict:
+    """Trigger on-demand synchronization of remote threat intelligence feeds."""
+    return threat_intel.sync_feeds()
+
+
+@app.post("/threat-intel/indicators", dependencies=[Depends(require_ml_auth)])
+def threat_intel_add_indicator(req: ThreatIndicatorRequest) -> dict:
+    """Dynamically register an organization or custom malicious IP / CIDR."""
+    ok = threat_intel.add_custom_indicator(req.indicator, req.reason)
+    if not ok:
+        raise HTTPException(400, "Invalid IP address or CIDR network string.")
+    return {"ok": True, "indicator": req.indicator, "status": threat_intel.get_status()}

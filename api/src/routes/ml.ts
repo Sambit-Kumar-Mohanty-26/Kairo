@@ -38,3 +38,36 @@ mlRouter.post(
     res.json({ detections: await classify(flows) });
   }),
 );
+
+const indicatorBody = z.object({
+  indicator: z.string().min(1, "Indicator must be a valid IP or CIDR."),
+  reason: z.string().optional(),
+});
+
+mlRouter.get(
+  "/threat-intel",
+  route(async (_req, res) => {
+    res.json(await callModel("/threat-intel/status"));
+  }),
+);
+
+mlRouter.post(
+  "/threat-intel/sync",
+  route(async (_req, res) => {
+    res.json(await callModel("/threat-intel/sync", { method: "POST" }));
+  }),
+);
+
+mlRouter.post(
+  "/threat-intel/indicators",
+  route(async (req, res) => {
+    const body = validate(indicatorBody, req.body);
+    res.json(
+      await callModel("/threat-intel/indicators", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      }),
+    );
+  }),
+);
